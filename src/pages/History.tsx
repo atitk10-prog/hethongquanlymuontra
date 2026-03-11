@@ -2,16 +2,14 @@ import { useState } from 'react';
 import { useAuth } from '../store/auth';
 import { useData } from '../context/DataContext';
 import { format } from 'date-fns';
-import { Search, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Download, ChevronLeft, ChevronRight, X, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 // Helper: Google Sheets sometimes auto-converts class text (e.g. "10A1") to dates
 const sanitizeClass = (val: string): string => {
   if (!val) return '';
   const s = String(val);
-  // Match ISO dates like "2026-01-09T..." or plain dates like "2026-01-09"
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-    return '';
-  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return '';
   return s;
 };
 
@@ -26,13 +24,24 @@ const formatClassPeriod = (cls: string, period: string): string => {
 
 const ITEMS_PER_PAGE = 15;
 
+type QRModalData = {
+  teacher: string;
+  device_id: string;
+  borrow_id: string;
+} | null;
+
 export default function History() {
-  const { borrowHistory, isLoading } = useData();
+  const { borrowHistory, devices, isLoading } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [qrModal, setQrModal] = useState<QRModalData>(null);
   const { user } = useAuth();
 
-  // Sort by borrow_date descending
+  const getDeviceName = (deviceId: string) => {
+    const d = devices.find(dev => dev.id === deviceId);
+    return d ? d.name : deviceId;
+  };
+
   const sortedHistory = [...borrowHistory].sort(
     (a, b) => new Date(b.borrow_date).getTime() - new Date(a.borrow_date).getTime()
   );
@@ -44,16 +53,11 @@ export default function History() {
       h.class.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
-  // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredHistory.length / ITEMS_PER_PAGE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
   const paginatedData = filteredHistory.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-  const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    setCurrentPage(1);
-  };
+  const handleSearch = (term: string) => { setSearchTerm(term); setCurrentPage(1); };
 
   const exportCSV = () => {
     if (filteredHistory.length === 0) return;
@@ -73,6 +77,40 @@ export default function History() {
     link.href = URL.createObjectURL(blob);
     link.download = `LichSuMuonTra_${format(new Date(), 'yyyyMMdd')}.csv`;
     link.click();
+  };
+
+  const handleStatusClick = (record: typeof borrowHistory[0]) => {
+    if (record.status === 'Đang mượn' || record.status === 'Trả thiếu') {
+      setQrModal({
+        teacher: record.teacher,
+        device_id: record.device_id,
+        borrow_id: record.id,
+      });
+    }
+  };
+
+  // Count active borrows for the teacher in QR modal
+  const activeBorrowsForTeacher = qrModal
+    ? borrowHistory.filter(b => b.teacher === qrModal.teacher && (b.status === 'Đang mượn' || b.status === 'Trả thiếu'))
+    : [];
+
+  const StatusBadge = ({ record }: { record: typeof borrowHistory[0] }) => {
+    const isActive = record.status === 'Đang mượn' || record.status === 'Trả thiếu';
+    const colorClass = record.status === 'Đang mượn'
+      ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+      : record.status === 'Trả thiếu'
+        ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+        : 'bg-emerald-100 text-emerald-800';
+
+    return (
+      <span
+        onClick={isActive ? (e) => { e.stopPropagation(); handleStatusClick(record); } : undefined}
+        className={`px-2 inline-flex items-center gap-1 text-xs leading-5 font-semibold rounded-full transition-colors ${colorClass} ${isActive ? 'cursor-pointer' : ''}`}
+      >
+        {isActive && <QrCode className="h-3 w-3" />}
+        {record.status}
+      </span>
+    );
   };
 
   const PaginationControls = () => {
@@ -167,9 +205,7 @@ export default function History() {
                       {record.return_date ? format(new Date(record.return_date), 'dd/MM/yyyy HH:mm') : '-'}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${record.status === 'Đang mượn' ? 'bg-blue-100 text-blue-800' : record.status === 'Trả thiếu' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                        {record.status}
-                      </span>
+                      <StatusBadge record={record} />
                     </td>
                   </tr>
                 ))
@@ -197,9 +233,7 @@ export default function History() {
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-slate-400 font-medium">{startIndex + idx + 1}.</span>
                       <span className="font-mono text-sm text-indigo-600 font-medium">{record.device_id}</span>
-                      <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${record.status === 'Đang mượn' ? 'bg-blue-100 text-blue-800' : record.status === 'Trả thiếu' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                        {record.status}
-                      </span>
+                      <StatusBadge record={record} />
                     </div>
                     <div className="text-xs text-slate-500 mt-0.5">
                       {record.teacher} • {formatClassPeriod(record.class, record.period)}
@@ -220,8 +254,64 @@ export default function History() {
         <PaginationControls />
       </div>
 
-      {/* Toast */}
-      <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-[100]" />
+      {/* QR Return Modal */}
+      {qrModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setQrModal(null)}>
+          <div className="bg-white rounded-2xl p-5 max-w-sm mx-4 w-full" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-900">QR Trả thiết bị</h3>
+              <button onClick={() => setQrModal(null)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Tab: Individual device vs All by teacher */}
+            <div className="space-y-4">
+              {/* Individual device QR */}
+              <div className="border border-slate-200 rounded-xl p-4 text-center">
+                <p className="text-xs font-medium text-slate-500 mb-2">Trả thiết bị này</p>
+                <p className="text-sm font-semibold text-slate-900 mb-1">{getDeviceName(qrModal.device_id)}</p>
+                <p className="text-xs font-mono text-indigo-500 mb-3">{qrModal.device_id}</p>
+                <div className="inline-block bg-white p-3 rounded-lg border border-slate-100">
+                  <QRCodeSVG
+                    value={`${window.location.origin}/device/${qrModal.device_id}`}
+                    size={150}
+                    level="H"
+                    includeMargin
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2">Quét để mở trang trả thiết bị này</p>
+              </div>
+
+              {/* Shared teacher return QR */}
+              <div className="border border-indigo-200 bg-indigo-50/50 rounded-xl p-4 text-center">
+                <p className="text-xs font-medium text-indigo-600 mb-2">Trả TẤT CẢ thiết bị của {qrModal.teacher}</p>
+                <p className="text-xs text-slate-500 mb-3">
+                  Đang mượn {activeBorrowsForTeacher.length} thiết bị
+                </p>
+                <div className="inline-block bg-white p-3 rounded-lg border border-indigo-100">
+                  <QRCodeSVG
+                    value={`${window.location.origin}/return/${encodeURIComponent(qrModal.teacher)}`}
+                    size={150}
+                    level="H"
+                    includeMargin
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2">Quét để trả tất cả thiết bị đang mượn</p>
+                {activeBorrowsForTeacher.length > 0 && (
+                  <div className="mt-2 text-left">
+                    {activeBorrowsForTeacher.map(b => (
+                      <div key={b.id} className="text-[11px] text-slate-500 py-0.5">
+                        • <span className="font-mono text-indigo-500">{b.device_id}</span> {getDeviceName(b.device_id)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
