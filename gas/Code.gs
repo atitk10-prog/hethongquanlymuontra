@@ -392,21 +392,30 @@ function borrowDevice(data) {
   var borrowId = 'BH' + new Date().getTime().toString().slice(-6);
   var now = new Date().toISOString();
   
-  borrowSheet.appendRow([
+  var newRow = [
     borrowId,
-    data.device_id,
-    data.teacher,
-    data.class,
-    data.period || '',
+    String(data.device_id),
+    String(data.teacher),
+    String(data.class),
+    String(data.period || ''),
     now,
     '',
     'Đang mượn',
-    data.note || '',
+    String(data.note || ''),
     requestQty,
     0,
     0,
     ''
-  ]);
+  ];
+  
+  borrowSheet.appendRow(newRow);
+  
+  // Force text format on teacher, class, period columns to prevent auto-conversion
+  var lastRow = borrowSheet.getLastRow();
+  borrowSheet.getRange(lastRow, 3, 1, 3).setNumberFormat('@'); // columns C, D, E (teacher, class, period)
+  // Re-set values as plain text after formatting
+  borrowSheet.getRange(lastRow, 4).setValue(String(data.class));
+  borrowSheet.getRange(lastRow, 5).setValue(String(data.period || ''));
   
   // Cập nhật status nếu hết SL
   if (availableQty - requestQty <= 0) {

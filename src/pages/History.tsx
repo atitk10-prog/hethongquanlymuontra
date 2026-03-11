@@ -4,6 +4,17 @@ import { useData } from '../context/DataContext';
 import { format } from 'date-fns';
 import { Search, Download } from 'lucide-react';
 
+// Helper: Google Sheets sometimes auto-converts class text (e.g. "10A1") to dates
+const sanitizeClass = (val: string): string => {
+  if (!val) return '';
+  const s = String(val);
+  if (s.includes('T') && (s.includes('Z') || s.includes('+')) && s.length > 15) {
+    // It's an ISO date — strip it, keep whatever text remains
+    return s.replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z?/g, '').replace(/^[\s\-–]*/, '').trim() || s.substring(0, 10);
+  }
+  return s;
+};
+
 export default function History() {
   const { borrowHistory, isLoading } = useData();
   const [searchTerm, setSearchTerm] = useState('');
@@ -117,7 +128,7 @@ export default function History() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{record.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-indigo-600">{record.device_id}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">{record.teacher}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{record.class} - T{record.period}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{sanitizeClass(record.class)} - T{record.period}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                       {format(new Date(record.borrow_date), 'dd/MM/yyyy HH:mm')}
                     </td>
@@ -161,7 +172,7 @@ export default function History() {
                       </span>
                     </div>
                     <div className="text-xs text-slate-500 mt-0.5">
-                      {record.teacher} • Lớp {record.class} - T{record.period}
+                      {record.teacher} • Lớp {sanitizeClass(record.class)} - T{record.period}
                     </div>
                   </div>
                 </div>
