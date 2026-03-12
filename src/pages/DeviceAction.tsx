@@ -29,6 +29,7 @@ export default function DeviceAction() {
   const [returnBorrowId, setReturnBorrowId] = useState('');
   const [returnData, setReturnData] = useState({
     returned_qty: 0,
+    damaged_qty: 0,
     missing_qty: 0,
     missing_note: '',
     status: 'Tốt',
@@ -113,15 +114,18 @@ export default function DeviceAction() {
         device_id: device.id,
         borrow_id: returnBorrowId,
         teacher: user.name,
-        returned_qty: returnData.returned_qty,
+        returned_qty: returnData.returned_qty + returnData.damaged_qty,
+        damaged_qty: returnData.damaged_qty,
         missing_qty: returnData.missing_qty,
         missing_note: returnData.missing_note,
-        status: returnData.status,
+        status: returnData.damaged_qty > 0 ? returnData.status : 'Tốt',
         note: returnData.note
       });
-      const msg = returnData.missing_qty > 0
-        ? `Trả ${returnData.returned_qty}, thiếu ${returnData.missing_qty} thiết bị`
-        : `Trả thành công ${returnData.returned_qty} thiết bị!`;
+      const parts = [];
+      if (returnData.returned_qty > 0) parts.push(`Trả tốt ${returnData.returned_qty}`);
+      if (returnData.damaged_qty > 0) parts.push(`hỏng ${returnData.damaged_qty}`);
+      if (returnData.missing_qty > 0) parts.push(`mất ${returnData.missing_qty}`);
+      const msg = parts.join(', ') + ' thiết bị';
       setSuccess(msg);
       // Refresh ALL data for realtime updates
       refreshDevices();
@@ -140,9 +144,10 @@ export default function DeviceAction() {
     setReturnBorrowId(borrow.id);
     setReturnData({
       returned_qty: remaining,
+      damaged_qty: 0,
       missing_qty: 0,
       missing_note: '',
-      status: 'Tốt',
+      status: 'Hỏng nhẹ',
       note: ''
     });
   };
@@ -300,69 +305,98 @@ export default function DeviceAction() {
                 const remaining = borrow ? (borrow.quantity || 1) - (borrow.returned_qty || 0) : 0;
                 return (
                   <>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700">Số lượng trả <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-emerald-700">Trả tốt</label>
                         <input
                           type="number" min={0} max={remaining} required
                           value={returnData.returned_qty}
                           onChange={e => {
-                            const val = parseInt(e.target.value) || 0;
-                            setReturnData({ ...returnData, returned_qty: val, missing_qty: remaining - val });
+                            const val = Math.max(0, Math.min(remaining, parseInt(e.target.value) || 0));
+                            const maxOther = remaining - val;
+                            setReturnData(prev => ({
+                              ...prev,
+                              returned_qty: val,
+                              damaged_qty: Math.min(prev.damaged_qty, maxOther),
+                              missing_qty: Math.min(prev.missing_qty, maxOther - Math.min(prev.damaged_qty, maxOther))
+                            }));
                           }}
-                          className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          className="mt-1 block w-full border border-emerald-300 rounded-md shadow-sm py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm bg-emerald-50"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-slate-700">Thiếu/Mất</label>
+                        <label className="block text-sm font-medium text-amber-700">Trả hỏng</label>
                         <input
-                          type="number" min={0} max={remaining}
+                          type="number" min={0} max={remaining - returnData.returned_qty - returnData.missing_qty}
+                          value={returnData.damaged_qty}
+                          onChange={e => {
+                            const val = Math.max(0, parseInt(e.target.value) || 0);
+                            setReturnData(prev => ({
+                              ...prev,
+                              damaged_qty: val,
+                              missing_qty: Math.min(prev.missing_qty, remaining - prev.returned_qty - val)
+                            }));
+                          }}
+                          className="mt-1 block w-full border border-amber-300 rounded-md shadow-sm py-2 px-3 focus:ring-amber-500 focus:border-amber-500 sm:text-sm bg-amber-50"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-red-700">Mất</label>
+                        <input
+                          type="number" min={0} max={remaining - returnData.returned_qty - returnData.damaged_qty}
                           value={returnData.missing_qty}
                           onChange={e => {
-                            const val = parseInt(e.target.value) || 0;
-                            setReturnData({ ...returnData, missing_qty: val, returned_qty: remaining - val });
+                            const val = Math.max(0, parseInt(e.target.value) || 0);
+                            setReturnData(prev => ({ ...prev, missing_qty: val }));
                           }}
-                          className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          className="mt-1 block w-full border border-red-300 rounded-md shadow-sm py-2 px-3 focus:ring-red-500 focus:border-red-500 sm:text-sm bg-red-50"
                         />
                       </div>
                     </div>
+                    <p className="text-xs text-slate-400">Tổng: {returnData.returned_qty + returnData.damaged_qty + returnData.missing_qty}/{remaining}</p>
 
-                    {returnData.missing_qty > 0 && (
+                    {returnData.damaged_qty > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Tình trạng hỏng</label>
+                        <div className="flex flex-wrap gap-2">
+                          {['Hỏng nhẹ', 'Cần bảo trì', 'Hỏng'].map(s => (
+                            <label key={s} className={`px-3 py-1.5 rounded-full text-sm cursor-pointer border transition-colors ${returnData.status === s ? 'bg-indigo-100 border-indigo-400 text-indigo-800 font-medium' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
+                              <input type="radio" name="returnStatus" value={s} checked={returnData.status === s} onChange={() => setReturnData({ ...returnData, status: s })} className="sr-only" />
+                              {s}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {(returnData.missing_qty > 0 || returnData.damaged_qty > 0) && (
                       <div>
                         <label className="block text-sm font-medium text-slate-700 flex items-center">
                           <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
-                          Lý do thiếu <span className="text-red-500 ml-1">*</span>
+                          Ghi chú {returnData.missing_qty > 0 ? 'mất/hỏng' : 'hỏng'} <span className="text-red-500 ml-1">*</span>
                         </label>
                         <input
                           type="text" required
                           value={returnData.missing_note}
                           onChange={e => setReturnData({ ...returnData, missing_note: e.target.value })}
                           className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                          placeholder="VD: Mất 2 chuột, hỏng 1 bàn phím..."
+                          placeholder="VD: 2 chuột bị hỏng màn hình..."
                         />
                       </div>
                     )}
 
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Tình trạng thiết bị khi trả</label>
-                      <div className="flex flex-wrap gap-2">
-                        {['Tốt', 'Hỏng nhẹ', 'Cần bảo trì', 'Hỏng'].map(s => (
-                          <label key={s} className={`px-3 py-1.5 rounded-full text-sm cursor-pointer border transition-colors ${returnData.status === s ? 'bg-indigo-100 border-indigo-400 text-indigo-800 font-medium' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
-                            <input type="radio" name="returnStatus" value={s} checked={returnData.status === s} onChange={() => setReturnData({ ...returnData, status: s })} className="sr-only" />
-                            {s}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
                     <button
                       type="submit"
-                      disabled={isLoading || (returnData.returned_qty === 0 && returnData.missing_qty === 0)}
+                      disabled={isLoading || (returnData.returned_qty + returnData.damaged_qty + returnData.missing_qty === 0)}
                       className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
                     >
-                      {returnData.missing_qty > 0
-                        ? `Trả ${returnData.returned_qty}, ghi nhận thiếu ${returnData.missing_qty}`
-                        : `Xác nhận trả ${returnData.returned_qty}`}
+                      {(() => {
+                        const parts: string[] = [];
+                        if (returnData.returned_qty > 0) parts.push(`Trả tốt ${returnData.returned_qty}`);
+                        if (returnData.damaged_qty > 0) parts.push(`hỏng ${returnData.damaged_qty}`);
+                        if (returnData.missing_qty > 0) parts.push(`mất ${returnData.missing_qty}`);
+                        return parts.length > 0 ? parts.join(', ') : 'Chọn số lượng';
+                      })()}
                     </button>
                   </>
                 );

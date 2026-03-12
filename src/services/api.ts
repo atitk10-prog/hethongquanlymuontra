@@ -264,7 +264,7 @@ export const api = {
     return result;
   },
 
-  returnDevice: async (data: { device_id: string; borrow_id: string; teacher: string; returned_qty?: number; missing_qty?: number; missing_note?: string; status: string; note: string }): Promise<{ success: boolean }> => {
+  returnDevice: async (data: { device_id: string; borrow_id: string; teacher: string; returned_qty?: number; damaged_qty?: number; missing_qty?: number; missing_note?: string; status: string; note: string }): Promise<{ success: boolean }> => {
     const result = await callApi('returnDevice', data);
     cache.invalidateAll(); // Clear all caches for realtime updates
     return result;
