@@ -90,9 +90,11 @@ export default function DeviceAction() {
         quantity: borrowData.quantity
       });
       setSuccess(`Mượn thành công ${borrowData.quantity} thiết bị!`);
-      // Refresh data for realtime updates
+      // Refresh ALL data for realtime updates
       refreshDevices();
       refreshHistory();
+      // Re-fetch local data
+      await Promise.all([fetchDevice(device.id), fetchActiveBorrows(device.id)]);
       setTimeout(() => navigate('/history'), 1500);
     } catch (err: any) {
       setError(err.message || 'Lỗi khi mượn thiết bị');
@@ -121,9 +123,11 @@ export default function DeviceAction() {
         ? `Trả ${returnData.returned_qty}, thiếu ${returnData.missing_qty} thiết bị`
         : `Trả thành công ${returnData.returned_qty} thiết bị!`;
       setSuccess(msg);
-      // Refresh data for realtime updates
+      // Refresh ALL data for realtime updates
       refreshDevices();
       refreshHistory();
+      // Re-fetch local data
+      await Promise.all([fetchDevice(device.id), fetchActiveBorrows(device.id)]);
       setTimeout(() => navigate('/history'), 1500);
     } catch (err: any) {
       setError(err.message || 'Lỗi khi trả thiết bị');

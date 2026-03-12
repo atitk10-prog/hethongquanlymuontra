@@ -37,19 +37,28 @@ export function exportToXlsx(sheetName: string, headers: string[], rows: (string
   </Worksheet>
 </Workbook>`;
 
-  // Use base64 data URI for maximum browser compatibility with file naming
-  const base64 = btoa(unescape(encodeURIComponent('\uFEFF' + xmlContent)));
-  const dataUri = `data:application/vnd.ms-excel;base64,${base64}`;
+  // Method 1: Try saveAs / msSaveBlob for IE/Edge compatibility
+  const blob = new Blob(['\uFEFF' + xmlContent], { type: 'application/octet-stream' });
 
+  if ((navigator as any).msSaveBlob) {
+    (navigator as any).msSaveBlob(blob, fileName);
+    return;
+  }
+
+  // Method 2: Use blob URL with delayed revoke
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  link.href = dataUri;
+  link.href = url;
   link.download = fileName;
   link.style.display = 'none';
   document.body.appendChild(link);
+
+  // Use click with a small dispatch event for better compatibility
   link.click();
 
-  // Clean up after a small delay
+  // Delay cleanup to ensure download starts
   setTimeout(() => {
     document.body.removeChild(link);
-  }, 100);
+    URL.revokeObjectURL(url);
+  }, 5000);
 }

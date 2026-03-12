@@ -303,19 +303,44 @@ function addDevice(data) {
   const sheet = ss.getSheetByName('devices');
   const id = 'TB' + new Date().getTime().toString().slice(-6);
   
-  sheet.appendRow([
-    id,
-    data.name || '',
-    data.subject || '',
-    data.room || '',
-    data.status || 'Tốt',
-    new Date().toISOString().split('T')[0],
-    data.value || 0,
-    id,
-    parseInt(data.quantity) || 1,
-    data.created_by || ''
-  ]);
+  // Read headers to determine column positions
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => String(h).toLowerCase().trim());
   
+  // Build data object with all fields
+  const deviceData = {
+    id: id,
+    name: data.name || '',
+    subject: data.subject || '',
+    room: data.room || '',
+    status: data.status || 'Tốt',
+    purchase_date: new Date().toISOString().split('T')[0],
+    value: data.value || 0,
+    qr_code: id,
+    quantity: parseInt(data.quantity) || 1,
+    created_by: data.created_by || ''
+  };
+  
+  // Auto-create missing columns
+  var lastCol = headers.length;
+  var allHeaders = headers.slice();
+  for (var key in deviceData) {
+    if (allHeaders.indexOf(key) === -1) {
+      allHeaders.push(key);
+      sheet.getRange(1, lastCol + 1).setValue(key);
+      lastCol++;
+    }
+  }
+  
+  // Map data to correct column positions
+  var newRow = new Array(allHeaders.length).fill('');
+  for (var key in deviceData) {
+    var colIdx = allHeaders.indexOf(key);
+    if (colIdx !== -1) {
+      newRow[colIdx] = deviceData[key];
+    }
+  }
+  
+  sheet.appendRow(newRow);
   return { success: true, id: id };
 }
 
