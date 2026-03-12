@@ -9,7 +9,14 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Devices() {
-  const { devices, setDevices, rooms, isLoading, refreshDevices } = useData();
+  const { devices, setDevices, rooms, borrowHistory, isLoading, refreshDevices } = useData();
+
+  // Calculate borrowed quantity per device from active borrows
+  const getBorrowedQty = (deviceId: string): number => {
+    return borrowHistory
+      .filter(b => b.device_id === deviceId && (b.status === 'Đang mượn' || b.status === 'Trả thiếu'))
+      .reduce((sum, b) => sum + ((b.quantity || 1) - (b.returned_qty || 0)), 0);
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
@@ -265,12 +272,13 @@ export default function Devices() {
               <tr>
                 <th className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase w-12">STT</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ID</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tên thiết bị</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Bộ môn</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phòng</th>
-                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">SL</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tình trạng</th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Thao tác</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tên thiết bị</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phòng</th>
+                <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Tổng</th>
+                <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Mượn</th>
+                <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Còn</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tình trạng</th>
+                <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Thao tác</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
@@ -287,20 +295,36 @@ export default function Devices() {
                 ))
               ) : paginatedDevices.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-4 text-center text-sm text-slate-500">Không tìm thấy thiết bị nào</td>
+                  <td colSpan={9} className="px-6 py-4 text-center text-sm text-slate-500">Không tìm thấy thiết bị nào</td>
                 </tr>
               ) : (
-                paginatedDevices.map((device, idx) => (
+                paginatedDevices.map((device, idx) => {
+                  const totalQty = device.quantity || 1;
+                  const borrowed = getBorrowedQty(device.id);
+                  const available = totalQty - borrowed;
+                  return (
                   <tr key={device.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-3 py-3 text-center text-sm text-slate-400">{startIndex + idx + 1}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">{device.id}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">{device.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{device.subject}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{device.room}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className="text-sm font-bold text-slate-700">{device.quantity || 1}</span>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="text-sm font-medium text-slate-700">{device.name}</div>
+                      <div className="text-xs text-slate-400">{device.subject}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{device.room}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-center">
+                      <span className="text-sm font-bold text-slate-700">{totalQty}</span>
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap text-center">
+                      {borrowed > 0 ? (
+                        <span className="text-sm font-bold text-blue-600">{borrowed}</span>
+                      ) : (
+                        <span className="text-sm text-slate-300">0</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap text-center">
+                      <span className={`text-sm font-bold ${available > 0 ? 'text-emerald-600' : 'text-red-600'}`}>{available}</span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(device.status)}`}>
                         {device.status}
                       </span>
@@ -329,7 +353,8 @@ export default function Devices() {
                       </button>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

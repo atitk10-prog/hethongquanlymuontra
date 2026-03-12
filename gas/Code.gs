@@ -608,6 +608,48 @@ function returnDevice(data) {
   // Nếu trả mà báo hỏng/hỏng nhẹ/cần bảo trì → cập nhật device status ngay
   if (deviceStatus !== 'Tốt') {
     updateDeviceStatus(data.device_id, deviceStatus);
+    
+    // Tự động tạo ghi chú bảo trì
+    try {
+      var maintenanceSheet = ss.getSheetByName('maintenance');
+      if (maintenanceSheet) {
+        var maintenanceId = 'MH' + new Date().getTime().toString().slice(-6);
+        var statusMap = {
+          'Hỏng nhẹ': 'Chưa sửa được',
+          'Cần bảo trì': 'Chưa sửa được', 
+          'Hỏng': 'Cần thay thế'
+        };
+        var mHeaders = maintenanceSheet.getRange(1, 1, 1, maintenanceSheet.getLastColumn()).getValues()[0].map(function(h) { return String(h).toLowerCase().trim(); });
+        var mData = {
+          id: maintenanceId,
+          device_id: String(data.device_id),
+          date: now.split('T')[0],
+          content: 'Trả thiết bị - Tình trạng: ' + deviceStatus + (data.missing_note ? ' | ' + data.missing_note : ''),
+          technician: String(data.teacher),
+          result: statusMap[deviceStatus] || 'Chưa sửa được',
+          room: currentDevice.room ? currentDevice.room + ' - ' + (currentDevice.subject || '') : ''
+        };
+        
+        var mLastCol = mHeaders.length;
+        var mAllHeaders = mHeaders.slice();
+        for (var mk in mData) {
+          if (mAllHeaders.indexOf(mk) === -1) {
+            mAllHeaders.push(mk);
+            maintenanceSheet.getRange(1, mLastCol + 1).setValue(mk);
+            mLastCol++;
+          }
+        }
+        var mNewRow = new Array(mAllHeaders.length).fill('');
+        for (var mk2 in mData) {
+          var mColIdx = mAllHeaders.indexOf(mk2);
+          if (mColIdx !== -1) mNewRow[mColIdx] = mData[mk2];
+        }
+        maintenanceSheet.appendRow(mNewRow);
+      }
+    } catch (e) {
+      // Không throw lỗi nếu không tạo được maintenance record
+      Logger.log('Auto-maintenance error: ' + e.message);
+    }
   } else if (stillBorrowed <= 0) {
     // Chỉ reset về Tốt khi tất cả đã trả VÀ trạng thái trả là Tốt
     updateDeviceStatus(data.device_id, 'Tốt');
