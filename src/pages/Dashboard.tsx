@@ -31,6 +31,21 @@ export default function Dashboard() {
     ? borrowHistory.filter(b => b.teacher === user.name && b.status !== 'Đang mượn').slice(0, 5)
     : [];
 
+  // Equipment staff: all active borrows (filtered by managed rooms if applicable)
+  const equipmentActiveBorrows = (() => {
+    if (!user || !['equipment', 'admin', 'vice_principal'].includes(user.role)) return [];
+    const activeBorrows = borrowHistory.filter(b => b.status === 'Đang mượn' || b.status === 'Trả thiếu');
+    if (user.role === 'equipment' && user.managed_rooms) {
+      const managedIds = user.managed_rooms.split(',').map(s => s.trim()).filter(Boolean);
+      if (managedIds.length > 0) {
+        const managedRoomNames = rooms.filter(r => managedIds.includes(r.id)).map(r => r.name);
+        const managedDeviceIds = devices.filter(d => managedRoomNames.includes(d.room)).map(d => d.id);
+        return activeBorrows.filter(b => managedDeviceIds.includes(b.device_id));
+      }
+    }
+    return activeBorrows;
+  })();
+
   // Get device name by ID
   const getDeviceName = (deviceId: string) => {
     const d = devices.find(dev => dev.id === deviceId);
@@ -221,6 +236,63 @@ export default function Dashboard() {
             </div>
             <p className="text-xs text-slate-400 mt-3 font-mono break-all">{user?.name}</p>
             <p className="text-xs text-slate-500 mt-1">Đang mượn {myActiveBorrows.length} thiết bị</p>
+          </div>
+        </div>
+      )}
+
+      {/* Equipment/Admin: Active Borrows Overview */}
+      {['equipment', 'admin', 'vice_principal'].includes(user?.role || '') && equipmentActiveBorrows.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-amber-800 flex items-center">
+              <Package className="h-4 w-4 mr-2" />
+              Thiết bị đang được mượn ({equipmentActiveBorrows.length})
+            </h3>
+          </div>
+          <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+            {/* Group by teacher */}
+            {Object.entries(
+              equipmentActiveBorrows.reduce((acc, b) => {
+                if (!acc[b.teacher]) acc[b.teacher] = [];
+                acc[b.teacher].push(b);
+                return acc;
+              }, {} as Record<string, typeof equipmentActiveBorrows>)
+            ).map(([teacher, borrows]) => (
+              <div key={teacher}>
+                <div className="px-4 py-2 bg-slate-50 flex items-center justify-between sticky top-0">
+                  <span className="text-xs font-semibold text-slate-700">{teacher} ({borrows.length})</span>
+                  <button
+                    onClick={() => navigate(`/return/${encodeURIComponent(teacher)}`)}
+                    className="text-[10px] px-2 py-1 bg-emerald-600 text-white rounded-md font-medium hover:bg-emerald-700 active:scale-95 transition-all"
+                  >
+                    Trả tất cả
+                  </button>
+                </div>
+                {borrows.map(b => (
+                  <div key={b.id} className="px-4 py-2 hover:bg-slate-50 transition-colors cursor-pointer flex items-center justify-between"
+                    onClick={() => navigate(`/device/${b.device_id}`)}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-slate-900">{getDeviceName(b.device_id)}</span>
+                        <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded-full text-[10px] font-semibold">
+                          SL: {b.quantity || 1}
+                        </span>
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${b.status === 'Trả thiếu' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {b.status}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        <span className="font-mono text-indigo-500">{b.device_id}</span>
+                        {b.class && <span> • Lớp {b.class}</span>}
+                        {b.period && <span> - T{b.period}</span>}
+                        {b.borrow_date && <span> • {format(new Date(b.borrow_date), 'dd/MM HH:mm')}</span>}
+                      </div>
+                    </div>
+                    <span className="text-emerald-500 text-xs font-medium flex-shrink-0">Trả →</span>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
         </div>
       )}
