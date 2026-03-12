@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../store/auth';
 import { useData } from '../context/DataContext';
 import { format } from 'date-fns';
+import { exportToXlsx } from '../utils/exportXlsx';
 import { Search, Download, ChevronLeft, ChevronRight, X, QrCode } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -71,24 +72,16 @@ export default function History() {
   const paginatedData = filteredHistory.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   const handleSearch = (term: string) => { setSearchTerm(term); setCurrentPage(1); };
 
-  const exportCSV = () => {
+  const exportExcel = () => {
     if (filteredHistory.length === 0) return;
-    const headers = ['STT', 'Mã GD', 'Mã TB', 'Giáo viên', 'Lớp/Tiết', 'TG Mượn', 'TG Trả', 'Trạng thái', 'Ghi chú'];
-    const csvData = filteredHistory.map((r, i) => [
-      i + 1, r.id, r.device_id, r.teacher, formatClassPeriod(r.class, r.period),
+    const headers = ['STT', 'Mã GD', 'Mã TB', 'Tên thiết bị', 'Giáo viên', 'Lớp/Tiết', 'TG Mượn', 'TG Trả', 'Trạng thái', 'Ghi chú'];
+    const rows = filteredHistory.map((r, i) => [
+      i + 1, r.id, r.device_id, getDeviceName(r.device_id), r.teacher, formatClassPeriod(r.class, r.period),
       format(new Date(r.borrow_date), 'dd/MM/yyyy HH:mm'),
       r.return_date ? format(new Date(r.return_date), 'dd/MM/yyyy HH:mm') : '',
       r.status, r.note || ''
     ]);
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `LichSuMuonTra_${format(new Date(), 'yyyyMMdd')}.csv`;
-    link.click();
+    exportToXlsx('Lịch sử mượn trả', headers, rows, `LichSuMuonTra_${format(new Date(), 'yyyyMMdd')}.xls`);
   };
 
   const handleStatusClick = (record: typeof borrowHistory[0]) => {
@@ -152,7 +145,7 @@ export default function History() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Lịch sử mượn trả</h1>
         {user?.role !== 'teacher' && (
-          <button onClick={exportCSV}
+          <button onClick={exportExcel}
             className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
             <Download className="-ml-1 mr-2 h-5 w-5 text-slate-400" />
             Xuất báo cáo

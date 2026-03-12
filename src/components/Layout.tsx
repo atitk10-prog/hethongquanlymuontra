@@ -41,7 +41,15 @@ export default function Layout() {
     { name: 'Hồ sơ', path: '/profile', icon: UserCircle, roles: ['teacher', 'equipment', 'leader', 'vice_principal', 'admin'] },
   ];
 
-  const filteredNavItems = navItems.filter(item => user && item.roles.includes(user.role));
+  // Teachers with managed_rooms can also access device management pages
+  const managedRoomPaths = ['/devices', '/inventory', '/maintenance', '/rooms'];
+  const filteredNavItems = navItems.filter(item => {
+    if (!user) return false;
+    if (item.roles.includes(user.role)) return true;
+    // Users with managed_rooms get access to device management pages
+    if (user.managed_rooms && managedRoomPaths.includes(item.path)) return true;
+    return false;
+  });
 
   // Bottom tab bar items (max 4 + "More")
   const bottomTabPrimary = filteredNavItems.filter(item =>

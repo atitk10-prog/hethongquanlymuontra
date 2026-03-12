@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { api, type Device } from '../services/api';
 import { Plus, Search, QrCode, Edit, Trash2, X, Download, Printer, CheckCircle2, AlertTriangle, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../store/auth';
+import { format } from 'date-fns';
+import { exportToXlsx } from '../utils/exportXlsx';
 import { useData } from '../context/DataContext';
 import { QRCodeSVG } from 'qrcode.react';
 import { useNavigate } from 'react-router-dom';
@@ -153,21 +155,13 @@ export default function Devices() {
 
   const handleSearch = (term: string) => { setSearchTerm(term); setCurrentPage(1); };
 
-  const exportCSV = () => {
+  const exportExcel = () => {
     if (filteredDevices.length === 0) return;
-    const headers = ['STT', 'ID', 'Tên thiết bị', 'Bộ môn', 'Phòng', 'Tình trạng', 'Mã QR URL'];
-    const csvData = filteredDevices.map((d, i) => [
-      i + 1, d.id, d.name, d.subject, d.room, d.status, `${window.location.origin}/device/${d.id}`
+    const headers = ['STT', 'ID', 'Tên thiết bị', 'Bộ môn', 'Phòng', 'Tình trạng', 'Số lượng'];
+    const rows = filteredDevices.map((d, i) => [
+      i + 1, d.id, d.name, d.subject, d.room, d.status, d.quantity || 1
     ]);
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `DanhSachThietBi.csv`;
-    link.click();
+    exportToXlsx('Danh sách thiết bị', headers, rows, `DanhSachThietBi_${format(new Date(), 'yyyyMMdd')}.xls`);
   };
 
   const PaginationControls = () => {
@@ -204,7 +198,7 @@ export default function Devices() {
         <div className="flex flex-wrap gap-2">
           {user?.role === 'vice_principal' && (
             <button
-              onClick={exportCSV}
+              onClick={exportExcel}
               className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
             >
               <Download className="-ml-1 mr-1.5 h-4 w-4 text-slate-400" aria-hidden="true" />
