@@ -6,13 +6,14 @@ import { format } from 'date-fns';
 import { Plus, Search, Wrench, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 
 export default function Maintenance() {
-  const { maintenanceHistory, devices, rooms, isLoading, refreshMaintenance } = useData();
+  const { maintenanceHistory, devices, rooms, isLoading, refreshMaintenance, refreshDevices } = useData();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
   const [showAddModal, setShowAddModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   // Device search state
   const [deviceSearch, setDeviceSearch] = useState('');
@@ -108,6 +109,20 @@ export default function Maintenance() {
     } catch (error: any) {
       console.error('Failed to add maintenance record', error);
       showToast(error.message || 'Lỗi khi lưu', 'error');
+    }
+  };
+
+  const handleUpdateResult = async (recordId: string, newResult: string) => {
+    setUpdatingId(recordId);
+    try {
+      const res = await api.updateMaintenanceResult({ id: recordId, result: newResult });
+      showToast(res.auto_reset ? 'Đã sửa — Thiết bị chuyển về trạng thái Tốt' : `Đã cập nhật: ${newResult}`);
+      refreshMaintenance();
+      refreshDevices();
+    } catch (error: any) {
+      showToast(error.message || 'Lỗi cập nhật', 'error');
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -267,10 +282,27 @@ export default function Maintenance() {
                     <td className="px-6 py-4 text-sm text-slate-700">{record.content}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{record.technician}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${record.result === 'Đã sửa' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                        }`}>
-                        {record.result}
-                      </span>
+                      {record.result === 'Đã sửa' ? (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-100 text-emerald-800">
+                          ✓ Đã sửa
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            record.result === 'Cần thay thế' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {record.result}
+                          </span>
+                          <button
+                            onClick={() => handleUpdateResult(record.id, 'Đã sửa')}
+                            disabled={updatingId === record.id}
+                            className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                            title="Đánh dấu đã sửa xong"
+                          >
+                            {updatingId === record.id ? '...' : '✓ Đã sửa'}
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))

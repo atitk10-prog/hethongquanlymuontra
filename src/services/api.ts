@@ -309,6 +309,13 @@ export const api = {
     return result;
   },
 
+  updateMaintenanceResult: async (data: { id: string; result: string }): Promise<{ success: boolean; auto_reset?: boolean }> => {
+    const result = await callApi('updateMaintenanceResult', data);
+    cache.invalidate('maintenance');
+    cache.invalidate('devices');
+    return result;
+  },
+
   // Dashboard Stats — use backend getDashboardStats directly instead of downloading all devices
   getDashboardStats: async (department?: string): Promise<DashboardStats> => {
     const cacheKey = `dashboard_stats_${department || 'all'}`;

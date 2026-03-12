@@ -66,6 +66,9 @@ function handleRequest(e) {
       case 'addMaintenance':
         result = addMaintenance(JSON.parse(e.postData.contents));
         break;
+      case 'updateMaintenanceResult':
+        result = updateMaintenanceResult(JSON.parse(e.postData.contents));
+        break;
 
       // --- Rooms (QUẢN LÝ PHÒNG) ---
       case 'getRooms':
@@ -954,6 +957,61 @@ function changePassword(id, currentPassword, newPassword) {
     }
   }
   throw new Error('Không tìm thấy người dùng');
+}
+
+// ============ UPDATE MAINTENANCE RESULT ============
+function updateMaintenanceResult(data) {
+  // data: { id, result }
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('maintenance');
+  if (!sheet) throw new Error('Không tìm thấy sheet maintenance');
+  
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h) { return String(h).toLowerCase().trim(); });
+  var idCol = headers.indexOf('id');
+  var resultCol = headers.indexOf('result');
+  var deviceIdCol = headers.indexOf('device_id');
+  
+  if (idCol === -1 || resultCol === -1) throw new Error('Thiếu cột id hoặc result');
+  
+  var allData = sheet.getDataRange().getValues();
+  var targetDeviceId = null;
+  
+  // Update the specific record
+  for (var i = 1; i < allData.length; i++) {
+    if (String(allData[i][idCol]).trim() === String(data.id).trim()) {
+      sheet.getRange(i + 1, resultCol + 1).setValue(data.result);
+      allData[i][resultCol] = data.result; // update local copy too
+      if (deviceIdCol !== -1) {
+        targetDeviceId = String(allData[i][deviceIdCol]).trim();
+      }
+      break;
+    }
+  }
+  
+  if (!targetDeviceId) return { success: true };
+  
+  // Check if ALL maintenance records for this device are resolved
+  var hasPending = false;
+  for (var j = 1; j < allData.length; j++) {
+    if (deviceIdCol !== -1 && String(allData[j][deviceIdCol]).trim() === targetDeviceId) {
+      var recordResult = String(allData[j][resultCol]).trim();
+      if (recordResult === 'Chưa sửa được' || recordResult === 'Cần thay thế') {
+        hasPending = true;
+        break;
+      }
+    }
+  }
+  
+  // If no pending records → reset device status to 'Tốt'
+  if (!hasPending && data.result === 'Đã sửa') {
+    try {
+      updateDeviceStatus(targetDeviceId, 'Tốt');
+    } catch (e) {
+      Logger.log('Auto-reset device status error: ' + e.message);
+    }
+  }
+  
+  return { success: true, device_id: targetDeviceId, auto_reset: !hasPending && data.result === 'Đã sửa' };
 }
 
 // ============================================================
