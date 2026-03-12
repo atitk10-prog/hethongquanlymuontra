@@ -322,7 +322,7 @@ export default function Users() {
                                                 <Building2 className="h-4 w-4 mr-1.5 text-slate-400" />
                                                 {u.department}
                                             </div>
-                                            {u.role === 'equipment' && u.managed_rooms && (
+                                            {u.managed_rooms && (
                                                 <div className="flex flex-wrap gap-1 mt-1">
                                                     {u.managed_rooms.split(',').map(rid => {
                                                         const room = rooms.find(r => r.id === rid.trim());
@@ -494,10 +494,10 @@ export default function Users() {
                                             </div>
                                         </div>
 
-                                        {formUser.role === 'equipment' && rooms.length > 0 && (
+                                        {rooms.length > 0 && (
                                             <div>
                                                 <label className="block text-sm font-semibold text-slate-700 mb-2">Phòng quản lý</label>
-                                                <p className="text-xs text-slate-400 mb-2">Chọn phòng mà nhân viên thiết bị sẽ quản lý. Không chọn = quản lý tất cả.</p>
+                                                <p className="text-xs text-slate-400 mb-2">Chọn phòng mà người dùng sẽ quản lý. Không chọn = xem tất cả.</p>
                                                 <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-2 space-y-1">
                                                     {rooms.map(r => {
                                                         const selected = formUser.managed_rooms.split(',').map(s => s.trim()).filter(Boolean);
