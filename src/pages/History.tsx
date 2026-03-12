@@ -3,7 +3,7 @@ import { useAuth } from '../store/auth';
 import { useData } from '../context/DataContext';
 import { format } from 'date-fns';
 import { exportToXlsx } from '../utils/exportXlsx';
-import { Search, Download, ChevronLeft, ChevronRight, X, QrCode } from 'lucide-react';
+import { Search, Download, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 // Helper: Google Sheets sometimes auto-converts class text (e.g. "10A1") to dates
@@ -112,7 +112,7 @@ export default function History() {
         onClick={isActive ? (e) => { e.stopPropagation(); handleStatusClick(record); } : undefined}
         className={`px-2 inline-flex items-center gap-1 text-xs leading-5 font-semibold rounded-full transition-colors ${colorClass} ${isActive ? 'cursor-pointer' : ''}`}
       >
-        {isActive && <QrCode className="h-3 w-3" />}
+        {isActive && <span className="w-1.5 h-1.5 rounded-full bg-current" />}
         {record.status}
       </span>
     );
@@ -174,7 +174,7 @@ export default function History() {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase w-12">STT</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Mã GD</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Mã TB</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Thiết bị</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Giáo viên</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Lớp/Tiết</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Thời gian mượn</th>
@@ -200,7 +200,13 @@ export default function History() {
                   <tr key={record.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 text-sm text-slate-400 text-center">{startIndex + idx + 1}</td>
                     <td className="px-4 py-3 text-sm font-medium text-slate-900">{record.id}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-indigo-600">{record.device_id}</td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm font-medium text-slate-900">{getDeviceName(record.device_id)}</div>
+                      <div className="text-xs text-slate-400 font-mono">{record.device_id}</div>
+                      {(record.missing_qty || 0) > 0 && (
+                        <div className="text-xs text-red-500 font-medium">Mất {record.missing_qty}</div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-slate-700">{record.teacher}</td>
                     <td className="px-4 py-3 text-sm text-slate-500">{formatClassPeriod(record.class, record.period)}</td>
                     <td className="px-4 py-3 text-sm text-slate-500">

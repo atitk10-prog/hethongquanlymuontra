@@ -147,15 +147,6 @@ export default function Dashboard() {
               <Package className="h-4 w-4 mr-2" />
               Thiết bị bạn đang mượn ({myActiveBorrows.length})
             </h3>
-            {myActiveBorrows.length > 0 && (
-              <button
-                onClick={() => setShowReturnQR(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 active:scale-95 transition-all"
-              >
-                <QrCode className="h-3.5 w-3.5" />
-                QR Trả thiết bị
-              </button>
-            )}
           </div>
 
           {myActiveBorrows.length === 0 ? (
