@@ -207,19 +207,44 @@ export default function DeviceAction() {
               <dt className="text-sm font-medium text-slate-500">Phòng</dt>
               <dd className="mt-1 text-sm text-slate-900 sm:mt-0 sm:col-span-2">{device?.room} — {device?.subject}</dd>
             </div>
-            <div className="py-3 sm:py-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <dt className="text-sm font-medium text-slate-500">Số lượng</dt>
-              <dd className="mt-1 sm:mt-0 sm:col-span-2">
-                <div className="flex items-center gap-3">
-                  <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-sm font-bold">
-                    Còn {availableQty}/{totalQty}
-                  </span>
+            <div className="py-3 sm:py-4 sm:px-6">
+              <dt className="text-sm font-medium text-slate-500 mb-3">Tình trạng kho</dt>
+              <dd>
+                {/* Stock progress bar */}
+                <div className="w-full bg-slate-100 rounded-full h-4 mb-2 overflow-hidden flex">
+                  {availableQty > 0 && (
+                    <div className="bg-emerald-500 h-full transition-all" style={{ width: `${(availableQty / totalQty) * 100}%` }} />
+                  )}
                   {borrowedQty > 0 && (
-                    <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-sm font-medium">
-                      Đang mượn {borrowedQty}
-                    </span>
+                    <div className="bg-blue-500 h-full transition-all" style={{ width: `${(borrowedQty / totalQty) * 100}%` }} />
                   )}
                 </div>
+                {/* Stock numbers */}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-slate-50 rounded-lg p-2">
+                    <div className="text-lg font-bold text-slate-800">{totalQty}</div>
+                    <div className="text-xs text-slate-500">Tổng</div>
+                  </div>
+                  <div className="bg-emerald-50 rounded-lg p-2">
+                    <div className="text-lg font-bold text-emerald-700">{availableQty}</div>
+                    <div className="text-xs text-emerald-600">Trong kho</div>
+                  </div>
+                  <div className="bg-blue-50 rounded-lg p-2">
+                    <div className="text-lg font-bold text-blue-700">{borrowedQty}</div>
+                    <div className="text-xs text-blue-600">Đang mượn</div>
+                  </div>
+                </div>
+                {/* Device status warning */}
+                {device?.status && device.status !== 'Tốt' && (
+                  <div className={`mt-2 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center ${
+                    device.status === 'Hỏng' ? 'bg-red-50 text-red-700' :
+                    device.status === 'Hỏng nhẹ' ? 'bg-amber-50 text-amber-700' :
+                    'bg-yellow-50 text-yellow-700'
+                  }`}>
+                    <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+                    Tình trạng: {device.status}
+                  </div>
+                )}
               </dd>
             </div>
           </dl>

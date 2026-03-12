@@ -598,17 +598,26 @@ function returnDevice(data) {
     }
   }
   
-  // Cập nhật device status
+  // Cập nhật device status dựa trên tình trạng trả
   var validStatuses = ['Tốt', 'Hỏng nhẹ', 'Cần bảo trì', 'Hỏng'];
   var deviceStatus = validStatuses.includes(data.status) ? data.status : 'Tốt';
-  var totalDeviceQty = parseInt(getDevice(data.device_id).quantity) || 1;
+  var currentDevice = getDevice(data.device_id);
+  var totalDeviceQty = parseInt(currentDevice.quantity) || 1;
   var stillBorrowed = getBorrowedQty(data.device_id);
   
-  if (stillBorrowed <= 0) {
+  // Nếu trả mà báo hỏng/hỏng nhẹ/cần bảo trì → cập nhật device status ngay
+  if (deviceStatus !== 'Tốt') {
     updateDeviceStatus(data.device_id, deviceStatus);
-  } else if (stillBorrowed < totalDeviceQty) {
-    // Vẫn còn mượn nhưng chưa hết
+  } else if (stillBorrowed <= 0) {
+    // Chỉ reset về Tốt khi tất cả đã trả VÀ trạng thái trả là Tốt
     updateDeviceStatus(data.device_id, 'Tốt');
+  }
+  
+  // Nếu có thiết bị mất → giảm quantity trong sheet devices
+  if (missingQty > 0) {
+    var newTotalQty = totalDeviceQty - missingQty;
+    if (newTotalQty < 0) newTotalQty = 0;
+    updateDevice(data.device_id, { quantity: newTotalQty });
   }
   
   return { success: true, returned: returnQty, missing: missingQty };
