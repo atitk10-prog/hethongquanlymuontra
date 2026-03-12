@@ -326,9 +326,20 @@ function updateDevice(id, updates) {
   const { sheet, rowIndex, headers, rowData } = found;
   var newRow = rowData.slice();
   var changed = false;
+  var lastCol = headers.length;
+  
   for (var key in updates) {
-    var colIndex = headers.indexOf(key.toLowerCase());
-    if (colIndex !== -1 && key.toLowerCase() !== 'id') {
+    var colKey = key.toLowerCase();
+    if (colKey === 'id') continue;
+    var colIndex = headers.indexOf(colKey);
+    if (colIndex === -1) {
+      // Auto-create missing column
+      colIndex = lastCol++;
+      sheet.getRange(1, colIndex + 1).setValue(colKey);
+      headers.push(colKey);
+      newRow.push(updates[key]);
+      changed = true;
+    } else {
       newRow[colIndex] = updates[key];
       changed = true;
     }
@@ -781,11 +792,20 @@ function updateUser(id, updates) {
   var sheet = found.sheet, rowIndex = found.rowIndex, headers = found.headers, rowData = found.rowData;
   var newRow = rowData.slice();
   var changed = false;
+  var lastCol = headers.length;
+  
   for (var key in updates) {
     var colKey = key.toLowerCase().trim();
     if (colKey === 'id' || colKey === 'user_id') continue;
     var colIndex = headers.indexOf(colKey);
-    if (colIndex !== -1) {
+    if (colIndex === -1) {
+      // Auto-create missing column
+      colIndex = lastCol++;
+      sheet.getRange(1, colIndex + 1).setValue(colKey);
+      headers.push(colKey);
+      newRow.push(updates[key]);
+      changed = true;
+    } else {
       newRow[colIndex] = updates[key];
       changed = true;
     }
