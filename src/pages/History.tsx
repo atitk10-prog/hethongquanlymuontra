@@ -31,7 +31,7 @@ type QRModalData = {
 } | null;
 
 export default function History() {
-  const { borrowHistory, devices, isLoading } = useData();
+  const { borrowHistory, devices, rooms, isLoading } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [qrModal, setQrModal] = useState<QRModalData>(null);
@@ -46,8 +46,20 @@ export default function History() {
     (a, b) => new Date(b.borrow_date).getTime() - new Date(a.borrow_date).getTime()
   );
 
+  // Build set of device IDs in managed rooms
+  const managedDeviceIds = (() => {
+    if (!user?.managed_rooms) return null;
+    const managedIds = user.managed_rooms.split(',').map(s => s.trim()).filter(Boolean);
+    if (managedIds.length === 0) return null;
+    const managedRoomNames = rooms.filter(r => managedIds.includes(r.id)).map(r => r.name);
+    return new Set(devices.filter(d => managedRoomNames.includes(d.room)).map(d => d.id));
+  })();
+
   const filteredHistory = sortedHistory.filter(h => {
-    if (user?.role === 'teacher' && h.teacher !== user.name) return false;
+    // Teachers without managed_rooms: only own borrows
+    if (user?.role === 'teacher' && !user.managed_rooms && h.teacher !== user.name) return false;
+    // Users with managed_rooms: only devices in those rooms
+    if (managedDeviceIds && !managedDeviceIds.has(h.device_id)) return false;
     return h.device_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       h.teacher.toLowerCase().includes(searchTerm.toLowerCase()) ||
       h.class.toLowerCase().includes(searchTerm.toLowerCase());

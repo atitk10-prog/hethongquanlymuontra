@@ -125,8 +125,8 @@ export default function Devices() {
     // Role matching
     if (user?.role === 'leader' && d.subject !== user.department) return false;
 
-    // Equipment staff: filter by managed rooms
-    if (user?.role === 'equipment' && user.managed_rooms) {
+    // Filter by managed rooms (all roles)
+    if (user?.managed_rooms) {
       const managedRoomIds = user.managed_rooms.split(',').map(s => s.trim()).filter(Boolean);
       if (managedRoomIds.length > 0) {
         const managedRooms = rooms.filter(r => managedRoomIds.includes(r.id));

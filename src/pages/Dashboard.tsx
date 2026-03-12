@@ -33,7 +33,9 @@ export default function Dashboard() {
 
   // All staff/admin: active borrows (filtered by managed rooms if set)
   const equipmentActiveBorrows = (() => {
-    if (!user || user.role === 'teacher') return [];
+    if (!user) return [];
+    // Teachers without managed_rooms don't see this panel
+    if (user.role === 'teacher' && !user.managed_rooms) return [];
     const activeBorrows = borrowHistory.filter(b => b.status === 'Đang mượn' || b.status === 'Trả thiếu');
     if (user.managed_rooms) {
       const managedIds = user.managed_rooms.split(',').map(s => s.trim()).filter(Boolean);
@@ -241,7 +243,7 @@ export default function Dashboard() {
       )}
 
       {/* Equipment/Admin: Active Borrows Overview */}
-      {user?.role !== 'teacher' && equipmentActiveBorrows.length > 0 && (
+      {(user?.role !== 'teacher' || user?.managed_rooms) && equipmentActiveBorrows.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-amber-800 flex items-center">
