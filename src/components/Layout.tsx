@@ -42,7 +42,7 @@ export default function Layout() {
   ];
 
   // Teachers with managed_rooms can also access device management pages
-  const managedRoomPaths = ['/devices', '/inventory', '/maintenance', '/rooms'];
+  const managedRoomPaths = ['/devices', '/inventory', '/maintenance'];
   const filteredNavItems = navItems.filter(item => {
     if (!user) return false;
     if (item.roles.includes(user.role)) return true;
