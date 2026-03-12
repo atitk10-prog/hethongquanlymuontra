@@ -913,3 +913,62 @@ function changePassword(id, currentPassword, newPassword) {
   }
   throw new Error('Không tìm thấy người dùng');
 }
+
+// ============================================================
+// TIỆN ÍCH SỬA SHEET — CHẠY 1 LẦN SAU KHI DEPLOY
+// Mở Code.gs → Chọn hàm fixBorrowHistorySheet → Run
+// ============================================================
+function fixBorrowHistorySheet() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('borrow_history');
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  
+  // Tìm cột trống và xóa
+  var emptyColIndexes = [];
+  for (var c = headers.length - 1; c >= 0; c--) {
+    if (String(headers[c]).trim() === '') {
+      emptyColIndexes.push(c);
+    }
+  }
+  
+  // Xóa cột trống (từ phải sang trái để index không bị lệch)
+  for (var i = 0; i < emptyColIndexes.length; i++) {
+    sheet.deleteColumn(emptyColIndexes[i] + 1);
+  }
+  
+  // Kiểm tra xem đã có đúng headers chưa, nếu chưa thì log
+  var newHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  Logger.log('Headers sau khi sửa: ' + JSON.stringify(newHeaders));
+  Logger.log('Đã xóa ' + emptyColIndexes.length + ' cột trống');
+  
+  // Kiểm tra duplicate borrow_id column (nếu id và borrow_id đều có)
+  var headerNames = newHeaders.map(function(h) { return String(h).toLowerCase().trim(); });
+  var idIdx = headerNames.indexOf('id');
+  var borrowIdIdx = headerNames.indexOf('borrow_id');
+  
+  if (idIdx !== -1 && borrowIdIdx !== -1 && idIdx !== borrowIdIdx) {
+    // Cả hai đều có → xóa cột borrow_id thừa (giữ lại id)
+    sheet.deleteColumn(borrowIdIdx + 1);
+    Logger.log('Đã xóa cột borrow_id thừa (giữ lại cột id)');
+  }
+  
+  return 'Đã sửa xong borrow_history sheet!';
+}
+
+// Sửa devices sheet — xóa cột trống
+function fixDevicesSheet() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('devices');
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  
+  for (var c = headers.length - 1; c >= 0; c--) {
+    if (String(headers[c]).trim() === '') {
+      sheet.deleteColumn(c + 1);
+    }
+  }
+  
+  var newHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  Logger.log('Devices headers: ' + JSON.stringify(newHeaders));
+  return 'Đã sửa xong devices sheet!';
+}
