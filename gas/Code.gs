@@ -390,7 +390,7 @@ function getBorrowHistory() {
   return sheetToObjects('borrow_history');
 }
 
-// Lấy số lượng đang được mượn của 1 thiết bị
+// Lấy số lượng đang được mượn của 1 thiết bị (trừ đã trả và đã mất)
 function getBorrowedQty(deviceId) {
   var history = sheetToObjects('borrow_history');
   var total = 0;
@@ -399,7 +399,21 @@ function getBorrowedQty(deviceId) {
     if (String(r.device_id) === String(deviceId) && (r.status === 'Đang mượn' || r.status === 'Trả thiếu')) {
       var qty = parseInt(r.quantity) || 1;
       var returned = parseInt(r.returned_qty) || 0;
-      total += (qty - returned);
+      var missing = parseInt(r.missing_qty) || 0;
+      total += (qty - returned - missing);
+    }
+  }
+  return total;
+}
+
+// Lấy tổng số lượng mất của 1 thiết bị (từ tất cả lịch sử)
+function getTotalMissingQty(deviceId) {
+  var history = sheetToObjects('borrow_history');
+  var total = 0;
+  for (var i = 0; i < history.length; i++) {
+    var r = history[i];
+    if (String(r.device_id) === String(deviceId)) {
+      total += (parseInt(r.missing_qty) || 0);
     }
   }
   return total;
@@ -432,7 +446,8 @@ function borrowDevice(data) {
   
   var totalQty = parseInt(device.quantity) || 1;
   var borrowedQty = getBorrowedQty(data.device_id);
-  var availableQty = totalQty - borrowedQty;
+  var lostQty = getTotalMissingQty(data.device_id);
+  var availableQty = totalQty - borrowedQty - lostQty;
   var requestQty = parseInt(data.quantity) || 1;
   
   if (requestQty > availableQty) {

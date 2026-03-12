@@ -9,7 +9,7 @@ export default function DeviceAction() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { refreshDevices, refreshHistory } = useData();
+  const { refreshDevices, refreshHistory, borrowHistory } = useData();
 
   const [device, setDevice] = useState<Device | null>(null);
   const [activeBorrows, setActiveBorrows] = useState<BorrowRecord[]>([]);
@@ -68,9 +68,14 @@ export default function DeviceAction() {
   const borrowedQty = activeBorrows.reduce((sum, b) => {
     const qty = b.quantity || 1;
     const returned = b.returned_qty || 0;
-    return sum + (qty - returned);
+    const missing = b.missing_qty || 0;
+    return sum + (qty - returned - missing);
   }, 0);
-  const availableQty = totalQty - borrowedQty;
+  // Total lost from ALL borrow history (includes completed borrows)
+  const lostQty = id ? borrowHistory
+    .filter(b => b.device_id === id)
+    .reduce((sum, b) => sum + (b.missing_qty || 0), 0) : 0;
+  const availableQty = totalQty - borrowedQty - lostQty;
 
   // Current user's active borrows
   const myBorrows = activeBorrows.filter(b => b.teacher === user?.name);
