@@ -1,7 +1,7 @@
 // Google Apps Script Backend Code - PHIÊN BẢN HOÀN CHỈNH 2026 (Chạy 1 lần duy nhất)
 // Spreadsheet cần có 4 sheets: devices, borrow_history, maintenance, users
 
-const SPREADSHEET_ID = '1nx8m5V56l4lUifucf8ZXTYnDr-1BxEGPcWSnCT7VxDo'; 
+const SPREADSHEET_ID = '1LH76Ru-UHO09He6E7FX9u5_0Rit5QJ7__UWj83YojYM'; 
 
 function doGet(e) {
   return handleRequest(e);
