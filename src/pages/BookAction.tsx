@@ -12,6 +12,12 @@ export default function BookAction() {
   const { user } = useAuth();
   const { refreshBooks, refreshBookBorrows, bookBorrows } = useData();
 
+  // Manager check: admin/librarian can borrow directly
+  const isManager = (() => {
+    if (!user) return false;
+    return ['admin', 'vice_principal', 'librarian'].includes(user.role);
+  })();
+
   const [book, setBook] = useState<Book | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -95,9 +101,10 @@ export default function BookAction() {
         borrower_type: borrowerType,
         class: borrowClass,
         quantity: parseInt(borrowQty) || 1,
-        note: borrowNote
+        note: borrowNote,
+        status: isManager ? 'Đang mượn' : 'Chờ duyệt'
       });
-      setSuccess('Mượn sách thành công!');
+      setSuccess(isManager ? 'Mượn sách thành công!' : 'Gửi yêu cầu mượn — chờ thủ thư duyệt!');
       await Promise.all([refreshBooks(), refreshBookBorrows()]);
       if (id) fetchBook(id);
     } catch (err: any) {
@@ -116,7 +123,7 @@ export default function BookAction() {
     try {
       await api.returnBook({
         borrow_id: returnBorrowId,
-        returned_qty: returnData.returned_qty + returnData.damaged_qty,
+        returned_qty: returnData.returned_qty,
         damaged_qty: returnData.damaged_qty,
         lost_qty: returnData.lost_qty,
         condition_note: returnData.condition_note,
@@ -401,7 +408,7 @@ export default function BookAction() {
               </div>
               <button type="submit" disabled={isSubmitting || !borrower.trim()}
                 className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-500/20 hover:shadow-xl disabled:opacity-50 transition-all active:scale-[0.98]">
-                {isSubmitting ? 'Đang xử lý...' : `Mượn ${borrowQty} cuốn`}
+                {isSubmitting ? 'Đang xử lý...' : (isManager ? `Mượn ${borrowQty} cuốn` : `Gửi yêu cầu mượn ${borrowQty} cuốn`)}
               </button>
             </form>
           )}

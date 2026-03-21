@@ -9,7 +9,19 @@ export default function RoomAction() {
   const { subject, room } = useParams<{ subject: string; room: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { devices, borrowHistory, refreshDevices } = useData();
+  const { devices, borrowHistory, rooms, refreshDevices } = useData();
+
+  // Manager check: admin/equipment/vice_principal OR manages this room
+  const isManager = (() => {
+    if (!user) return false;
+    if (['admin', 'vice_principal', 'equipment'].includes(user.role)) return true;
+    if (user.managed_rooms) {
+      const managedIds = user.managed_rooms.split(',').map(s => s.trim());
+      const managedRoomNames = rooms.filter(r => managedIds.includes(r.id)).map(r => r.name);
+      if (managedRoomNames.includes(decodeURIComponent(room || ''))) return true;
+    }
+    return false;
+  })();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -76,7 +88,8 @@ export default function RoomAction() {
           class: borrowData.class,
           period: borrowData.period,
           note: borrowData.note,
-          quantity: qty
+          quantity: qty,
+          status: isManager ? 'Đang mượn' : 'Chờ duyệt'
         });
         results.push({ id: deviceId, qty, success: true });
       } catch (err: any) {
@@ -88,8 +101,10 @@ export default function RoomAction() {
     const failCount = results.filter(r => !r.success).length;
 
     if (failCount === 0) {
-      setSuccess(`Đã mượn thành công ${successQty} thiết bị!`);
-      showToast(`Mượn thành công ${successQty} thiết bị`);
+      setSuccess(isManager
+        ? `Đã mượn thành công ${successQty} thiết bị!`
+        : `Đã gửi yêu cầu mượn ${successQty} thiết bị — chờ duyệt!`);
+      showToast(isManager ? `Mượn thành công ${successQty} thiết bị` : `Gửi yêu cầu ${successQty} TB — chờ duyệt`);
     } else {
       setError(`Mượn thành công ${successQty}, thất bại ${failCount} loại thiết bị`);
       showToast(`Có ${failCount} loại mượn thất bại`, 'error');
