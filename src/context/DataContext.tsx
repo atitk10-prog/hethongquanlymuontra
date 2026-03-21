@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { api, type Device, type User, type BorrowRecord, type MaintenanceRecord, type Room, type Book, type BookBorrow } from '../services/api';
+import { useAuth } from '../store/auth';
 
 // Auto-refresh interval (30 seconds)
 const AUTO_REFRESH_INTERVAL = 30_000;
@@ -33,6 +34,7 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
+    const { user: authUser } = useAuth();
     const [devices, setDevices] = useState<Device[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [borrowHistory, setBorrowHistory] = useState<BorrowRecord[]>([]);
@@ -193,7 +195,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             // No cache at all — must show loading
             refreshAll();
         }
-    }, []);
+    }, [authUser]);  // Re-run when user logs in/out
 
     // Auto-polling: refresh data every 30 seconds in background
     useEffect(() => {
