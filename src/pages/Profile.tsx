@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../store/auth';
+import { QRCodeSVG } from 'qrcode.react';
 import {
     User,
     Mail,
@@ -9,7 +10,9 @@ import {
     Key,
     Save,
     CheckCircle2,
-    AlertCircle
+    AlertCircle,
+    Printer,
+    QrCode
 } from 'lucide-react';
 
 export default function Profile() {
@@ -135,6 +138,51 @@ export default function Profile() {
                                 <span className="text-slate-900">{user.department}</span>
                             </div>
                         </div>
+                    </div>
+
+                    {/* QR Code Card */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-center mt-6">
+                        <div className="flex items-center justify-center gap-2 mb-4">
+                            <QrCode className="h-5 w-5 text-indigo-600" />
+                            <h3 className="font-bold text-slate-900">Mã QR cá nhân</h3>
+                        </div>
+                        <div className="flex justify-center mb-3 profile-qr-print">
+                            <QRCodeSVG value={`USER:${user.id}`} size={160} level="M" includeMargin={true} />
+                        </div>
+                        <p className="text-xs text-slate-400 mb-1">Dùng mã này để quét mượn/trả thiết bị</p>
+                        <p className="text-[10px] text-slate-300 font-mono">{user.id}</p>
+                        <button onClick={() => {
+                            const printWin = window.open('', '_blank', 'width=400,height=600');
+                            if (!printWin) return;
+                            const roleName = user.role === 'admin' ? 'Quản trị viên' : user.role === 'vice_principal' ? 'Ban giám hiệu' : user.role === 'equipment' ? 'Cán bộ thiết bị' : user.role === 'leader' ? 'Tổ trưởng' : user.role === 'librarian' ? 'Thủ thư' : 'Giáo viên';
+                            const qrDiv = document.querySelector('.profile-qr-print');
+                            const svgEl = document.querySelector('.profile-qr-print svg');
+                            const svgStr = svgEl ? new XMLSerializer().serializeToString(svgEl) : '';
+                            const svgB64 = svgStr ? 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr))) : '';
+                            printWin.document.write(`<!DOCTYPE html><html><head><title>Thẻ mượn trả</title>
+                            <style>body{font-family:system-ui,sans-serif;text-align:center;padding:40px 20px;margin:0}
+                            .card{border:2px solid #4f46e5;border-radius:16px;padding:24px;max-width:300px;margin:0 auto}
+                            h2{color:#1e293b;margin:8px 0 4px;font-size:18px}p{color:#64748b;margin:4px 0;font-size:13px}
+                            .role{background:#e0e7ff;color:#4338ca;padding:2px 10px;border-radius:8px;font-size:12px;display:inline-block;margin:8px 0}
+                            img{margin:16px auto;display:block}
+                            .id{color:#94a3b8;font-size:10px;font-family:monospace}
+                            @media print{body{padding:20px}}</style></head><body>
+                            <div class="card">
+                            <h2>${user.name}</h2>
+                            <p>${user.email}</p>
+                            <div class="role">${roleName}</div>
+                            <img src="${svgB64}" width="160" height="160" />
+                            <p class="id">ID: ${user.id}</p>
+                            <p style="margin-top:12px;font-size:11px;color:#94a3b8">HỆ THỐNG QUẢN LÝ MƯỢN TRẢ</p>
+                            </div>
+                            <script>setTimeout(function(){window.print()},300)<\/script>
+                            </body></html>`);
+                            printWin.document.close();
+                        }}
+                            className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-all">
+                            <Printer className="h-4 w-4" />
+                            In thẻ mượn trả
+                        </button>
                     </div>
                 </div>
 

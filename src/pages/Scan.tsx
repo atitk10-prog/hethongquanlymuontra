@@ -26,12 +26,26 @@ export default function Scan() {
     } catch { /* ignore */ }
 
     try {
+      // Library general QR: /library
+      if (decodedText.includes('/library')) {
+        navigate('/library');
+        return;
+      }
       // Return QR: /return/teacherName
       if (decodedText.includes('/return/')) {
         const parts = decodedText.split('/return/');
         if (parts.length > 1) {
           const teacherPath = parts[1].trim();
           navigate(`/return/${teacherPath}`);
+          return;
+        }
+      }
+      // Book QR: /book/BK...
+      if (decodedText.includes('/book/')) {
+        const parts = decodedText.split('/book/');
+        if (parts.length > 1) {
+          const bookId = parts[1].trim();
+          navigate(`/book-action/${bookId}`);
           return;
         }
       }
@@ -53,7 +67,12 @@ export default function Scan() {
           return;
         }
       }
-      // If it's just an ID
+      // If starts with BK → book
+      if (decodedText.trim().toUpperCase().startsWith('BK')) {
+        navigate(`/book-action/${decodedText.trim()}`);
+        return;
+      }
+      // If it's just an ID → device
       navigate(`/device/${decodedText.trim().toUpperCase()}`);
     } catch {
       setError('Mã QR không hợp lệ');
@@ -211,9 +230,9 @@ export default function Scan() {
   return (
     <div className="max-w-md mx-auto space-y-4">
       <div className="text-center">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Quét mã thiết bị</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Quét mã QR</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Đưa mã QR vào khung hình để quét
+          Đưa mã QR thiết bị hoặc sách vào khung hình
         </p>
       </div>
 

@@ -41,7 +41,13 @@ export default function Devices() {
     subject: '',
     room: '',
     status: 'Tốt',
-    quantity: 1
+    quantity: 1,
+    description: '',
+    model: '',
+    supplier: '',
+    value: 0,
+    purchase_date: new Date().toISOString().split('T')[0],
+    damaged_qty: 0
   });
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -55,7 +61,7 @@ export default function Devices() {
 
   const openAddModal = () => {
     setEditingDevice(null);
-    setFormDevice({ name: '', subject: '', room: '', status: 'Tốt', quantity: 1 });
+    setFormDevice({ name: '', subject: '', room: '', status: 'Tốt', quantity: 1, description: '', model: '', supplier: '', value: 0, purchase_date: new Date().toISOString().split('T')[0], damaged_qty: 0 });
     setShowAddModal(true);
   };
 
@@ -66,7 +72,13 @@ export default function Devices() {
       subject: device.subject,
       room: device.room,
       status: device.status,
-      quantity: device.quantity || 1
+      quantity: device.quantity || 1,
+      description: device.description || '',
+      model: device.model || '',
+      supplier: device.supplier || '',
+      value: device.value || 0,
+      purchase_date: device.purchase_date ? device.purchase_date.toString().slice(0, 10) : '',
+      damaged_qty: device.damaged_qty || 0
     });
     setShowAddModal(true);
   };
@@ -79,16 +91,23 @@ export default function Devices() {
     try {
       if (editingDevice) {
         // Edit — optimistic update OK, ID không đổi
+        const submitData = { ...formDevice };
+        // Auto-update status based on damaged_qty
+        if (submitData.damaged_qty >= submitData.quantity) {
+          submitData.status = 'Hỏng';
+        }
         const updatedDevice: Device = {
           ...editingDevice,
-          ...formDevice,
+          ...submitData,
         };
         setDevices(devices.map(d => d.id === editingDevice.id ? updatedDevice : d));
         setShowAddModal(false);
         setEditingDevice(null);
 
-        await api.updateDevice(editingDevice.id, formDevice);
+        await api.updateDevice(editingDevice.id, submitData);
         showToast('Đã cập nhật thiết bị thành công');
+
+        // Auto-create maintenance record when status changes to "Cần bảo trì"\n        // Removed — maintenance records are auto-created from return flow
       } else {
         // Add — gọi API trước, nhận ID thật rồi mới thêm vào list
         setShowAddModal(false);
@@ -100,8 +119,6 @@ export default function Devices() {
         const newDevice: Device = {
           id: result.id,
           ...formDevice,
-          purchase_date: new Date().toISOString().split('T')[0],
-          value: 0,
           qr_code: '',
           quantity: formDevice.quantity || 1,
           created_by: user?.name || ''
@@ -283,6 +300,7 @@ export default function Devices() {
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phòng</th>
                 <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Tổng</th>
                 <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Mượn</th>
+                <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Hỏng</th>
                 <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Mất</th>
                 <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Còn</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tình trạng</th>
@@ -298,19 +316,22 @@ export default function Devices() {
                     <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
                     <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
                     <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
                     <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-24 ml-auto"></div></td>
                   </tr>
                 ))
               ) : paginatedDevices.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-4 text-center text-sm text-slate-500">Không tìm thấy thiết bị nào</td>
+                  <td colSpan={11} className="px-6 py-4 text-center text-sm text-slate-500">Không tìm thấy thiết bị nào</td>
                 </tr>
               ) : (
                 paginatedDevices.map((device, idx) => {
                   const totalQty = device.quantity || 1;
                   const borrowed = getBorrowedQty(device.id);
                   const lost = getMissingQty(device.id);
-                  const available = totalQty - borrowed - lost;
+                  const damaged = device.damaged_qty || 0;
+                  const available = Math.max(0, totalQty - borrowed - lost - damaged);
                   return (
                   <tr key={device.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-3 py-3 text-center text-sm text-slate-400">{startIndex + idx + 1}</td>
@@ -326,6 +347,13 @@ export default function Devices() {
                     <td className="px-3 py-3 whitespace-nowrap text-center">
                       {borrowed > 0 ? (
                         <span className="text-sm font-bold text-blue-600">{borrowed}</span>
+                      ) : (
+                        <span className="text-sm text-slate-300">0</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap text-center">
+                      {damaged > 0 ? (
+                        <span className="text-sm font-bold text-amber-600">{damaged}</span>
                       ) : (
                         <span className="text-sm text-slate-300">0</span>
                       )}
@@ -486,7 +514,7 @@ export default function Devices() {
                         <div className="mt-1 space-y-2">
                           <input type="text" required value={formDevice.subject} onChange={e => setFormDevice({ ...formDevice, subject: e.target.value })} placeholder="Bộ môn" className="block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
                           <input type="text" required value={formDevice.room} onChange={e => setFormDevice({ ...formDevice, room: e.target.value })} placeholder="Phòng" className="block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-                          <p className="text-xs text-amber-600">💡 Tạo phòng trước ở mục "Phòng" để chọn nhanh hơn</p>
+                          <p className="text-xs text-amber-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Tạo phòng trước ở mục "Phòng" để chọn nhanh hơn</p>
                         </div>
                       )}
                     </div>
@@ -498,12 +526,76 @@ export default function Devices() {
                           <option value="Hỏng nhẹ">Hỏng nhẹ</option>
                           <option value="Hỏng">Hỏng</option>
                           <option value="Cần bảo trì">Cần bảo trì</option>
+                          <option value="Đã thanh lý">Đã thanh lý</option>
                         </select>
                       </div>
                     )}
+                    {/* Stats panel for edited device */}
+                    {editingDevice && (() => {
+                      const totalQty = formDevice.quantity;
+                      const borrowedQty = getBorrowedQty(editingDevice.id);
+                      const missingQty = getMissingQty(editingDevice.id);
+                      const damagedQty = formDevice.damaged_qty;
+                      const goodQty = Math.max(0, totalQty - borrowedQty - damagedQty - missingQty);
+                      return (
+                        <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                          <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Thống kê số lượng</h4>
+                          <div className="grid grid-cols-5 gap-1 text-center">
+                            <div className="bg-white rounded-md p-2 border border-slate-200">
+                              <div className="text-lg font-bold text-slate-900">{totalQty}</div>
+                              <div className="text-[10px] text-slate-500">Tổng</div>
+                            </div>
+                            <div className="bg-emerald-50 rounded-md p-2 border border-emerald-200">
+                              <div className="text-lg font-bold text-emerald-600">{goodQty}</div>
+                              <div className="text-[10px] text-emerald-600">Tốt</div>
+                            </div>
+                            <div className="bg-blue-50 rounded-md p-2 border border-blue-200">
+                              <div className="text-lg font-bold text-blue-600">{borrowedQty}</div>
+                              <div className="text-[10px] text-blue-600">Đang mượn</div>
+                            </div>
+                            <div className="bg-amber-50 rounded-md p-2 border border-amber-200">
+                              <div className="text-lg font-bold text-amber-600">{damagedQty}</div>
+                              <div className="text-[10px] text-amber-600">Hỏng</div>
+                            </div>
+                            <div className="bg-red-50 rounded-md p-2 border border-red-200">
+                              <div className="text-lg font-bold text-red-600">{missingQty}</div>
+                              <div className="text-[10px] text-red-600">Mất</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">Số lượng tổng</label>
+                        <input type="number" min={1} required value={formDevice.quantity} onChange={e => setFormDevice({ ...formDevice, quantity: parseInt(e.target.value) || 1 })} className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">Số hỏng</label>
+                        <input type="number" min={0} max={formDevice.quantity} value={formDevice.damaged_qty} onChange={e => setFormDevice({ ...formDevice, damaged_qty: parseInt(e.target.value) || 0 })} className="mt-1 block w-full border border-amber-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-amber-500 focus:border-amber-500 sm:text-sm bg-amber-50" />
+                      </div>
+                    </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700">Số lượng</label>
-                      <input type="number" min={1} required value={formDevice.quantity} onChange={e => setFormDevice({ ...formDevice, quantity: parseInt(e.target.value) || 1 })} className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                      <label className="block text-sm font-medium text-slate-700">Model / Mã hiệu</label>
+                      <input type="text" value={formDevice.model} onChange={e => setFormDevice({ ...formDevice, model: e.target.value })} placeholder="VD: BX-500" className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Nhà cung cấp</label>
+                      <input type="text" value={formDevice.supplier} onChange={e => setFormDevice({ ...formDevice, supplier: e.target.value })} placeholder="VD: Công ty ABC" className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">Đơn giá (VNĐ)</label>
+                        <input type="text" value={formDevice.value ? formDevice.value.toLocaleString('vi-VN') : ''} onChange={e => setFormDevice({ ...formDevice, value: parseInt(e.target.value.replace(/\D/g, '')) || 0 })} placeholder="VD: 500,000" className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">Ngày mua</label>
+                        <input type="date" value={formDevice.purchase_date} onChange={e => setFormDevice({ ...formDevice, purchase_date: e.target.value })} className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">Mô tả / Thông số kỹ thuật</label>
+                      <textarea rows={2} value={formDevice.description} onChange={e => setFormDevice({ ...formDevice, description: e.target.value })} placeholder="Mô tả chi tiết thiết bị..." className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
                     </div>
                   </div>
                 </div>

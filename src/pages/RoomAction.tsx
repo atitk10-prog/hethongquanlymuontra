@@ -40,10 +40,11 @@ export default function RoomAction() {
   // Calculate available qty for each device
   const getAvailableQty = (device: Device) => {
     const totalQty = device.quantity || 1;
+    const damaged = device.damaged_qty || 0;
     const borrowed = borrowHistory
       .filter(b => String(b.device_id) === String(device.id) && (b.status === 'Đang mượn' || b.status === 'Trả thiếu'))
       .reduce((sum, b) => sum + ((b.quantity || 1) - (b.returned_qty || 0)), 0);
-    return Math.max(0, totalQty - borrowed);
+    return Math.max(0, totalQty - borrowed - damaged);
   };
 
   const totalDeviceQty = roomDevices.reduce((sum, d) => sum + (d.quantity || 1), 0);

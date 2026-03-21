@@ -3,7 +3,7 @@ import { useAuth } from '../store/auth';
 import { useData } from '../context/DataContext';
 import { format } from 'date-fns';
 import { exportToXlsx } from '../utils/exportXlsx';
-import { Search, Download, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Search, Download, ChevronLeft, ChevronRight, X, SlidersHorizontal } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 // Helper: Google Sheets sometimes auto-converts class text (e.g. "10A1") to dates
@@ -38,6 +38,13 @@ export default function History() {
   const [qrModal, setQrModal] = useState<QRModalData>(null);
   const { user } = useAuth();
 
+  // #7: Advanced filters
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterSubject, setFilterSubject] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+
   const getDeviceName = (deviceId: string) => {
     const d = devices.find(dev => dev.id === deviceId);
     return d ? d.name : deviceId;
@@ -61,9 +68,31 @@ export default function History() {
     if (user?.role === 'teacher' && !user.managed_rooms && h.teacher !== user.name) return false;
     // Users with managed_rooms: only devices in those rooms
     if (managedDeviceIds && !managedDeviceIds.has(h.device_id)) return false;
-    return h.device_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    // Text search
+    const matchText = !searchTerm || h.device_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       h.teacher.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      h.class.toLowerCase().includes(searchTerm.toLowerCase());
+      h.class.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      getDeviceName(h.device_id).toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchText) return false;
+    // Status filter
+    if (filterStatus && h.status !== filterStatus) return false;
+    // Date range filter
+    if (filterDateFrom) {
+      try { if (new Date(h.borrow_date) < new Date(filterDateFrom)) return false; } catch {}
+    }
+    if (filterDateTo) {
+      try {
+        const to = new Date(filterDateTo);
+        to.setHours(23, 59, 59);
+        if (new Date(h.borrow_date) > to) return false;
+      } catch {}
+    }
+    // Subject filter
+    if (filterSubject) {
+      const device = devices.find(d => d.id === h.device_id);
+      if (device && device.subject !== filterSubject) return false;
+    }
+    return true;
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredHistory.length / ITEMS_PER_PAGE));
@@ -154,17 +183,57 @@ export default function History() {
       </div>
 
       <div className="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
-        <div className="p-3 sm:p-4 border-b border-slate-200 bg-slate-50">
-          <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-              <Search className="h-5 w-5 text-slate-400" />
+        <div className="p-3 sm:p-4 border-b border-slate-200 bg-slate-50 space-y-3">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <Search className="h-5 w-5 text-slate-400" />
+              </div>
+              <input type="text"
+                className="block w-full rounded-md border-slate-300 pl-10 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 border"
+                placeholder="Tìm kiếm theo mã TB, giáo viên, lớp..."
+                value={searchTerm} onChange={(e) => handleSearch(e.target.value)}
+              />
             </div>
-            <input type="text"
-              className="block w-full rounded-md border-slate-300 pl-10 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 border"
-              placeholder="Tìm kiếm theo mã TB, giáo viên, lớp..."
-              value={searchTerm} onChange={(e) => handleSearch(e.target.value)}
-            />
+            <button onClick={() => setShowFilters(!showFilters)}
+              className={`px-3 py-2 rounded-md border text-sm font-medium transition-colors flex items-center gap-1.5 ${showFilters ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-300 text-slate-600 hover:bg-slate-100'}`}>
+              <SlidersHorizontal className="h-4 w-4" /> Lọc
+            </button>
           </div>
+          {showFilters && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Từ ngày</label>
+                <input type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setCurrentPage(1); }}
+                  className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Đến ngày</label>
+                <input type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setCurrentPage(1); }}
+                  className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Trạng thái</label>
+                <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+                  className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                  <option value="">Tất cả</option>
+                  <option value="Đang mượn">Đang mượn</option>
+                  <option value="Đã trả">Đã trả</option>
+                  <option value="Trả thiếu">Trả thiếu</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Bộ môn</label>
+                <select value={filterSubject} onChange={e => { setFilterSubject(e.target.value); setCurrentPage(1); }}
+                  className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                  <option value="">Tất cả</option>
+                  {[...new Set(devices.map(d => d.subject))].filter(Boolean).sort().map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Desktop Table */}

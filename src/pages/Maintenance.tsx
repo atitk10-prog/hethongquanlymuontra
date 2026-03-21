@@ -3,7 +3,8 @@ import { api, type MaintenanceRecord } from '../services/api';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../store/auth';
 import { format } from 'date-fns';
-import { Plus, Search, Wrench, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { exportToXlsx } from '../utils/exportXlsx';
+import { Plus, Search, Wrench, ChevronLeft, ChevronRight, AlertTriangle, Check, Download } from 'lucide-react';
 
 export default function Maintenance() {
   const { maintenanceHistory, devices, rooms, isLoading, refreshMaintenance, refreshDevices } = useData();
@@ -14,6 +15,10 @@ export default function Maintenance() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [replaceModal, setReplaceModal] = useState<{ recordId: string; deviceId: string; maxQty: number } | null>(null);
+  const [replaceDamagedQty, setReplaceDamagedQty] = useState(0);
+  const [repairModal, setRepairModal] = useState<{ recordId: string; deviceId: string; damagedQty: number } | null>(null);
+  const [repairQty, setRepairQty] = useState(0);
 
   // Device search state
   const [deviceSearch, setDeviceSearch] = useState('');
@@ -112,18 +117,43 @@ export default function Maintenance() {
     }
   };
 
-  const handleUpdateResult = async (recordId: string, newResult: string) => {
+  const handleUpdateResult = async (recordId: string, newResult: string, opts?: { damaged_qty?: number; repaired_qty?: number }) => {
     setUpdatingId(recordId);
     try {
-      const res = await api.updateMaintenanceResult({ id: recordId, result: newResult });
-      showToast(res.auto_reset ? 'Đã sửa — Thiết bị chuyển về trạng thái Tốt' : `Đã cập nhật: ${newResult}`);
+      const payload: { id: string; result: string; damaged_qty?: number; repaired_qty?: number } = { id: recordId, result: newResult };
+      if (opts?.damaged_qty !== undefined) payload.damaged_qty = opts.damaged_qty;
+      if (opts?.repaired_qty !== undefined) payload.repaired_qty = opts.repaired_qty;
+      const res = await api.updateMaintenanceResult(payload);
+      if (newResult === 'Đã sửa') {
+        showToast(res.auto_reset ? `Đã sửa ${opts?.repaired_qty || ''} TB — Thiết bị chuyển về Tốt` : `Đã sửa ${opts?.repaired_qty || ''} TB`);
+      } else if (newResult === 'Cần thay thế') {
+        showToast(`Cần thay thế (${opts?.damaged_qty || 0} hỏng)`);
+      } else {
+        showToast(`Đã cập nhật: ${newResult}`);
+      }
       refreshMaintenance();
       refreshDevices();
     } catch (error: any) {
       showToast(error.message || 'Lỗi cập nhật', 'error');
     } finally {
       setUpdatingId(null);
+      setReplaceModal(null);
+      setRepairModal(null);
     }
+  };
+
+  const openReplaceModal = (recordId: string, deviceId: string) => {
+    const device = devices.find(d => d.id === deviceId);
+    const maxQty = device?.quantity || 1;
+    setReplaceModal({ recordId, deviceId, maxQty });
+    setReplaceDamagedQty(device?.damaged_qty || 1);
+  };
+
+  const openRepairModal = (recordId: string, deviceId: string) => {
+    const device = devices.find(d => d.id === deviceId);
+    const damagedQty = device?.damaged_qty || 0;
+    setRepairModal({ recordId, deviceId, damagedQty });
+    setRepairQty(damagedQty);
   };
 
   const filteredHistory = sortedHistory.filter(h =>
@@ -170,13 +200,30 @@ export default function Maintenance() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Lịch sử bảo trì</h1>
-        <button
-          onClick={openAddModal}
-          className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
-        >
-          <Plus className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-          Thêm ghi chú bảo trì
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (filteredHistory.length === 0) return;
+              const headers = ['STT', 'Mã GD', 'Mã TB', 'Tên thiết bị', 'Phòng', 'Ngày', 'Nội dung', 'Người sửa', 'Kết quả'];
+              const rows = filteredHistory.map((r, i) => [
+                i + 1, r.id, r.device_id, getDeviceName(r.device_id), getDeviceRoom(r.device_id),
+                format(new Date(r.date), 'dd/MM/yyyy'), r.content, r.technician, r.result
+              ]);
+              exportToXlsx('Lịch sử bảo trì', headers, rows, `BaoTri_${format(new Date(), 'yyyyMMdd')}.xls`);
+            }}
+            className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            <Download className="-ml-0.5 mr-1.5 h-4 w-4 text-slate-400" />
+            Xuất Excel
+          </button>
+          <button
+            onClick={openAddModal}
+            className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
+          >
+            <Plus className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+            Thêm ghi chú bảo trì
+          </button>
+        </div>
       </div>
 
       {/* Panel: Thiết bị cần sửa chữa */}
@@ -284,23 +331,33 @@ export default function Maintenance() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       {record.result === 'Đã sửa' ? (
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-100 text-emerald-800">
-                          ✓ Đã sửa
+                          <Check className="h-3 w-3 inline mr-1" /> Đã sửa
                         </span>
                       ) : (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             record.result === 'Cần thay thế' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
                           }`}>
                             {record.result}
                           </span>
                           <button
-                            onClick={() => handleUpdateResult(record.id, 'Đã sửa')}
+                            onClick={() => openRepairModal(record.id, record.device_id)}
                             disabled={updatingId === record.id}
                             className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
                             title="Đánh dấu đã sửa xong"
                           >
-                            {updatingId === record.id ? '...' : '✓ Đã sửa'}
+                            {updatingId === record.id ? '...' : 'Đã sửa'}
                           </button>
+                          {record.result !== 'Cần thay thế' && (
+                            <button
+                              onClick={() => openReplaceModal(record.id, record.device_id)}
+                              disabled={updatingId === record.id}
+                              className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                              title="Đánh dấu cần thay thế"
+                            >
+                              Thay thế
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>
@@ -330,14 +387,11 @@ export default function Maintenance() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs text-slate-400 font-medium">{startIndex + idx + 1}.</span>
                       <span className="font-semibold text-sm text-slate-900 truncate">{getDeviceName(record.device_id)}</span>
-                      <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full flex-shrink-0 ${record.result === 'Đã sửa' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                        }`}>
+                      <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full flex-shrink-0 ${record.result === 'Đã sửa' ? 'bg-emerald-100 text-emerald-800' : record.result === 'Cần thay thế' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
                         {record.result}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-500">
-                      {record.content}
-                    </div>
+                    <div className="text-xs text-slate-500">{record.content}</div>
                     <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1">
                       <span className="font-mono">{record.device_id}</span>
                       <span>•</span>
@@ -345,6 +399,20 @@ export default function Maintenance() {
                       <span>•</span>
                       <span>{record.technician}</span>
                     </div>
+                    {record.result !== 'Đã sửa' && (
+                      <div className="flex gap-2 mt-2">
+                        <button onClick={() => openRepairModal(record.id, record.device_id)} disabled={updatingId === record.id}
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+                          {updatingId === record.id ? '...' : 'Đã sửa'}
+                        </button>
+                        {record.result !== 'Cần thay thế' && (
+                          <button onClick={() => openReplaceModal(record.id, record.device_id)} disabled={updatingId === record.id}
+                            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                            Thay thế
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -462,6 +530,110 @@ export default function Maintenance() {
           </div>
         </div>
       )}
+
+      {/* Replace Modal — input damaged_qty */}
+      {replaceModal && (() => {
+        const device = devices.find(d => d.id === replaceModal.deviceId);
+        return (
+          <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+            <div className="flex items-center justify-center min-h-screen px-4">
+              <div className="fixed inset-0 bg-slate-500/75" onClick={() => setReplaceModal(null)}></div>
+              <div className="relative z-10 bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                  Cần thay thế
+                </h3>
+                {device && (
+                  <div className="bg-slate-50 rounded-lg p-3 text-sm">
+                    <div className="font-medium text-slate-900">{device.name}</div>
+                    <div className="text-xs text-slate-500">{device.id} • {device.room} • Tổng: {device.quantity || 1}</div>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Số lượng hỏng</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={replaceModal.maxQty}
+                    value={replaceDamagedQty}
+                    onChange={e => setReplaceDamagedQty(Math.min(replaceModal.maxQty, parseInt(e.target.value) || 0))}
+                    className="w-full border border-red-300 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-red-500 bg-red-50"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Tối đa: {replaceModal.maxQty}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleUpdateResult(replaceModal.recordId, 'Cần thay thế', { damaged_qty: replaceDamagedQty })}
+                    disabled={updatingId === replaceModal.recordId}
+                    className="flex-1 py-2 rounded-lg bg-red-600 text-white font-medium text-sm hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  >
+                    {updatingId === replaceModal.recordId ? 'Đang xử lý...' : 'Xác nhận thay thế'}
+                  </button>
+                  <button
+                    onClick={() => setReplaceModal(null)}
+                    className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm hover:bg-slate-50"
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Repair Modal — input repaired qty */}
+      {repairModal && (() => {
+        const device = devices.find(d => d.id === repairModal.deviceId);
+        return (
+          <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
+            <div className="flex items-center justify-center min-h-screen px-4">
+              <div className="fixed inset-0 bg-slate-500/75" onClick={() => setRepairModal(null)}></div>
+              <div className="relative z-10 bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <Check className="h-5 w-5 text-emerald-500" />
+                  Đã sửa chữa
+                </h3>
+                {device && (
+                  <div className="bg-slate-50 rounded-lg p-3 text-sm">
+                    <div className="font-medium text-slate-900">{device.name}</div>
+                    <div className="text-xs text-slate-500">{device.id} • Tổng: {device.quantity || 1} • Hỏng: {device.damaged_qty || 0}</div>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Số lượng đã sửa được</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={repairModal.damagedQty}
+                    value={repairQty}
+                    onChange={e => setRepairQty(Math.min(repairModal.damagedQty, parseInt(e.target.value) || 0))}
+                    className="w-full border border-emerald-300 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-emerald-500 bg-emerald-50"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Đang hỏng: {repairModal.damagedQty} • Sau sửa còn hỏng: {Math.max(0, repairModal.damagedQty - repairQty)}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleUpdateResult(repairModal.recordId, 'Đã sửa', { repaired_qty: repairQty })}
+                    disabled={updatingId === repairModal.recordId || repairQty <= 0}
+                    className="flex-1 py-2 rounded-lg bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                  >
+                    {updatingId === repairModal.recordId ? 'Đang xử lý...' : `Xác nhận sửa ${repairQty} TB`}
+                  </button>
+                  <button
+                    onClick={() => setRepairModal(null)}
+                    className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm hover:bg-slate-50"
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

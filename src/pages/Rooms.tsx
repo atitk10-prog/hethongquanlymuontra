@@ -312,7 +312,7 @@ export default function Rooms() {
               <p className="text-sm text-slate-500 mb-4">
                 Xóa phòng <span className="font-bold text-slate-700">{confirmDeleteId.name}</span> ({confirmDeleteId.subject})?
                 {getDeviceCount(confirmDeleteId) > 0 && (
-                  <span className="block mt-1 text-amber-600 font-medium">⚠️ Phòng đang có {getDeviceCount(confirmDeleteId)} thiết bị</span>
+                  <span className="block mt-1 text-amber-600 font-medium">Phòng đang có {getDeviceCount(confirmDeleteId)} thiết bị</span>
                 )}
               </p>
               <div className="flex gap-2 justify-end">
