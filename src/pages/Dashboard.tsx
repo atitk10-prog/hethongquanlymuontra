@@ -361,24 +361,24 @@ export default function Dashboard() {
 
           {/* Alerts */}
           {(() => {
-            const alerts: { type: 'warning' | 'error' | 'info'; message: string; count: number }[] = [];
-            if (showDevices && deviceStats.broken > 0) alerts.push({ type: 'warning', message: `${deviceStats.broken} thiết bị cần sửa chữa/bảo trì`, count: deviceStats.broken });
+            const alerts: { type: 'warning' | 'error' | 'info'; message: string; count: number; link: string }[] = [];
+            if (showDevices && deviceStats.broken > 0) alerts.push({ type: 'warning', message: `${deviceStats.broken} thiết bị cần sửa chữa/bảo trì`, count: deviceStats.broken, link: '/maintenance' });
             if (showDevices) {
               const longBorrows = equipmentActiveBorrows.filter(b => { try { return (now.getTime() - new Date(b.borrow_date).getTime()) / (1000*60*60*24) > 3; } catch { return false; } });
-              if (longBorrows.length > 0) alerts.push({ type: 'info', message: `${longBorrows.length} thiết bị mượn hơn 3 ngày`, count: longBorrows.length });
+              if (longBorrows.length > 0) alerts.push({ type: 'info', message: `${longBorrows.length} thiết bị mượn hơn 3 ngày`, count: longBorrows.length, link: '/device-borrow?tab=active' });
             }
             if (showBooks && pendingBookBorrows.length > 0 && (isAdmin || isLibrarian))
-              alerts.push({ type: 'info', message: `${pendingBookBorrows.length} yêu cầu mượn sách chờ duyệt`, count: pendingBookBorrows.length });
+              alerts.push({ type: 'info', message: `${pendingBookBorrows.length} yêu cầu mượn sách chờ duyệt`, count: pendingBookBorrows.length, link: '/book-borrow?tab=pending' });
             if (pendingMaintenance.length > 0 && showDevices)
-              alerts.push({ type: 'error', message: `${pendingMaintenance.length} phiếu bảo trì chưa hoàn thành`, count: pendingMaintenance.length });
+              alerts.push({ type: 'error', message: `${pendingMaintenance.length} phiếu bảo trì chưa hoàn thành`, count: pendingMaintenance.length, link: '/maintenance' });
             if (alerts.length === 0) return null;
             return (
               <div className="space-y-2">
                 {alerts.map((a, i) => (
-                  <div key={i} className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm ${
-                    a.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
-                    a.type === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-800' :
-                    'bg-blue-50 border-blue-200 text-blue-800'
+                  <div key={i} onClick={() => navigate(a.link)} className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm cursor-pointer hover:shadow-md transition-all ${
+                    a.type === 'error' ? 'bg-red-50 border-red-200 text-red-800 hover:bg-red-100' :
+                    a.type === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100' :
+                    'bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100'
                   }`}>
                     <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                     <span className="font-medium">{a.message}</span>
