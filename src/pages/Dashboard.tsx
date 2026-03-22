@@ -140,7 +140,7 @@ export default function Dashboard() {
     return Object.entries(months).map(([name, v]) => ({ name, ...v }));
   }, [borrowHistory]);
 
-  const pendingMaintenance = maintenanceHistory.filter(m => m.result === 'Chưa sửa được' || m.result === 'Cần thay thế');
+  const pendingMaintenance = maintenanceHistory.filter(m => m.result !== 'Đã sửa' && m.result !== 'Cần thay thế');
 
   const getDeviceName = (deviceId: string) => {
     const d = devices.find(dev => dev.id === deviceId);

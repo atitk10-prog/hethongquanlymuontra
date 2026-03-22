@@ -12,6 +12,7 @@ export default function Maintenance() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
+  const [resultFilter, setResultFilter] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -158,11 +159,20 @@ export default function Maintenance() {
     setRepairQty(damagedQty);
   };
 
-  const filteredHistory = sortedHistory.filter(h =>
-    h.device_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    h.technician.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (h.content && h.content.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredHistory = sortedHistory.filter(h => {
+    // Result filter
+    if (resultFilter === 'pending' && (h.result === 'Đã sửa' || h.result === 'Cần thay thế')) return false;
+    if (resultFilter === 'fixed' && h.result !== 'Đã sửa') return false;
+    if (resultFilter === 'replace' && h.result !== 'Cần thay thế') return false;
+    // Search filter
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      return h.device_id.toLowerCase().includes(q) ||
+        h.technician.toLowerCase().includes(q) ||
+        (h.content && h.content.toLowerCase().includes(q));
+    }
+    return true;
+  });
 
   // Get device name from device list
   const getDeviceName = (deviceId: string) => {
@@ -308,7 +318,28 @@ export default function Maintenance() {
       })()}
 
       <div className="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
-        <div className="p-3 sm:p-4 border-b border-slate-200 bg-slate-50">
+        {/* Filter Tabs */}
+        <div className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2 border-b border-slate-200 bg-slate-50">
+          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-3">
+            {[
+              { key: 'all', label: 'Tất cả', count: sortedHistory.length },
+              { key: 'pending', label: 'Chưa sửa', count: sortedHistory.filter(h => h.result !== 'Đã sửa' && h.result !== 'Cần thay thế').length },
+              { key: 'fixed', label: 'Đã sửa', count: sortedHistory.filter(h => h.result === 'Đã sửa').length },
+              { key: 'replace', label: 'Thay thế', count: sortedHistory.filter(h => h.result === 'Cần thay thế').length },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => { setResultFilter(tab.key); setCurrentPage(1); }}
+                className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
+                  resultFilter === tab.key
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {tab.label} ({tab.count})
+              </button>
+            ))}
+          </div>
           <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
               <Search className="h-5 w-5 text-slate-400" aria-hidden="true" />
