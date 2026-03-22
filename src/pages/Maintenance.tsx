@@ -87,10 +87,12 @@ export default function Maintenance() {
     setShowAddModal(true);
   };
 
-  // Sort by date descending
-  const sortedHistory = [...maintenanceHistory].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+  // Sort by date descending, then by ID descending for same-date records
+  const sortedHistory = [...maintenanceHistory].sort((a, b) => {
+    const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+    if (dateDiff !== 0) return dateDiff;
+    return (b.id || '').localeCompare(a.id || '');
+  });
 
   const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,7 +230,14 @@ export default function Maintenance() {
 
       {/* Panel: Thiết bị cần sửa chữa */}
       {(() => {
-        const damagedDevices = devices.filter(d => d.status && d.status !== 'Tốt' && d.status !== 'Đang mượn');
+        // Only show devices needing repair (exclude ones already marked 'Cần thay thế')
+        const damagedDevices = devices.filter(d => {
+          if (!d.status || d.status === 'Tốt' || d.status === 'Đang mượn') return false;
+          // Hide if all maintenance records for this device are 'Cần thay thế'
+          const pendingRecords = maintenanceHistory.filter(m => m.device_id === d.id && m.result !== 'Đã sửa');
+          const allReplaced = pendingRecords.length > 0 && pendingRecords.every(m => m.result === 'Cần thay thế');
+          return !allReplaced;
+        });
         if (damagedDevices.length === 0) return null;
         return (
           <div className="bg-white shadow-sm rounded-xl border border-amber-200 overflow-hidden">
