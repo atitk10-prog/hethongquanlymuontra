@@ -1,4 +1,4 @@
-﻿// Google Apps Script Backend Code - HỆ THỐNG QUẢN LÝ MƯỢN TRẢ 2026
+// Google Apps Script Backend Code - HỆ THỐNG QUẢN LÝ MƯỢN TRẢ 2026
 // Spreadsheet cần có 6 sheets: devices, borrow_history, maintenance, users, books, book_borrows
 
 const SPREADSHEET_ID = '1LH76Ru-UHO09He6E7FX9u5_0Rit5QJ7__UWj83YojYM'; 
@@ -658,8 +658,9 @@ function returnDevice(data) {
   var remaining = borrowedQty - previousReturned;
   var returnQty = (data.returned_qty !== undefined && data.returned_qty !== null) ? parseInt(data.returned_qty) : remaining;
   var missingQty = parseInt(data.missing_qty) || 0;
+  var returnDamagedQty2 = parseInt(data.damaged_qty) || 0;
   
-  if (returnQty + missingQty > remaining) {
+  if (returnQty + returnDamagedQty2 + missingQty > remaining) {
     throw new Error('Tổng trả (' + (returnQty + returnDamagedQty2 + missingQty) + ') vượt quá SL còn (' + remaining + ')');
   }
   
