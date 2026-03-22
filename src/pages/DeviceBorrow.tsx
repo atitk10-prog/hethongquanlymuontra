@@ -45,7 +45,11 @@ export default function DeviceBorrow() {
     returned_qty: 0, damaged_qty: 0, missing_qty: 0, missing_note: '', status: 'Tốt'
   });
 
-  const activeBorrows = (borrowHistory || []).filter(b => b.status === 'Đang mượn' || b.status === 'Trả thiếu');
+  const activeBorrows = (borrowHistory || []).filter(b => {
+    if (b.status !== 'Đang mượn' && b.status !== 'Trả thiếu') return false;
+    const remaining = (b.quantity || 1) - (b.returned_qty || 0) - (b.missing_qty || 0);
+    return remaining > 0;
+  });
 
   // Teacher list — all users who are teachers
   const teacherList = useMemo(() => {

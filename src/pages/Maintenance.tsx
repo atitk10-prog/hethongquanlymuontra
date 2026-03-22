@@ -239,27 +239,60 @@ export default function Maintenance() {
               </h3>
             </div>
             <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
-              {damagedDevices.map(d => (
-                <div key={d.id} className="px-4 py-3 flex items-center justify-between hover:bg-slate-50">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-slate-900">{d.name}</div>
-                    <div className="text-xs text-slate-500">{d.id} • {d.room} • {d.subject}</div>
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-slate-700">{d.quantity || 1}</div>
-                      <div className="text-[10px] text-slate-400 uppercase">Số lượng</div>
+              {damagedDevices.map(d => {
+                // Find matching maintenance record for this device
+                const matchingRecord = maintenanceHistory.find(m => m.device_id === d.id && m.result !== 'Đã sửa');
+                return (
+                <div key={d.id} className="px-4 py-3 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-slate-900">{d.name}</div>
+                      <div className="text-xs text-slate-500">{d.id} • {d.room} • {d.subject}</div>
                     </div>
-                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
-                      d.status === 'Hỏng' ? 'bg-red-100 text-red-800' :
-                      d.status === 'Hỏng nhẹ' ? 'bg-amber-100 text-amber-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {d.status}
-                    </span>
+                    <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-red-600">{d.damaged_qty || 0}</div>
+                        <div className="text-[10px] text-slate-400 uppercase">Hỏng</div>
+                      </div>
+                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
+                        d.status === 'Hỏng' ? 'bg-red-100 text-red-800' :
+                        d.status === 'Hỏng nhẹ' ? 'bg-amber-100 text-amber-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {d.status}
+                      </span>
+                    </div>
                   </div>
+                  {/* Action buttons */}
+                  {matchingRecord && (
+                    <div className="flex gap-2 mt-2">
+                      {matchingRecord.result !== 'Cần thay thế' && (
+                        <button onClick={() => openRepairModal(matchingRecord.id, d.id)}
+                          disabled={updatingId === matchingRecord.id}
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+                          {updatingId === matchingRecord.id ? '...' : '✅ Đã sửa'}
+                        </button>
+                      )}
+                      {matchingRecord.result !== 'Cần thay thế' && (
+                        <button onClick={() => openReplaceModal(matchingRecord.id, d.id)}
+                          disabled={updatingId === matchingRecord.id}
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors">
+                          Cần thay thế
+                        </button>
+                      )}
+                      {matchingRecord.result === 'Cần thay thế' && (
+                        <span className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-100 text-red-700">
+                          Đã đánh dấu thay thế
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {!matchingRecord && (
+                    <div className="text-xs text-slate-400 mt-1 italic">Chưa có phiếu bảo trì — vui lòng thêm mới</div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         );
@@ -340,14 +373,16 @@ export default function Maintenance() {
                           }`}>
                             {record.result}
                           </span>
-                          <button
-                            onClick={() => openRepairModal(record.id, record.device_id)}
-                            disabled={updatingId === record.id}
-                            className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
-                            title="Đánh dấu đã sửa xong"
-                          >
-                            {updatingId === record.id ? '...' : 'Đã sửa'}
-                          </button>
+                          {record.result !== 'Cần thay thế' && (
+                            <button
+                              onClick={() => openRepairModal(record.id, record.device_id)}
+                              disabled={updatingId === record.id}
+                              className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                              title="Đánh dấu đã sửa xong"
+                            >
+                              {updatingId === record.id ? '...' : 'Đã sửa'}
+                            </button>
+                          )}
                           {record.result !== 'Cần thay thế' && (
                             <button
                               onClick={() => openReplaceModal(record.id, record.device_id)}
