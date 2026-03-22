@@ -1347,6 +1347,17 @@ function getBookBorrowedQty(bookId) {
   return total;
 }
 
+function getBookLostQty(bookId) {
+  var borrows = sheetToObjects('book_borrows');
+  var total = 0;
+  for (var i = 0; i < borrows.length; i++) {
+    if (String(borrows[i].book_id) === String(bookId)) {
+      total += (parseInt(borrows[i].lost_qty) || 0);
+    }
+  }
+  return total;
+}
+
 // Tính số sách đang mượn của 1 người
 function getBorrowerActiveCount(borrower) {
   var borrows = sheetToObjects('book_borrows');
@@ -1369,8 +1380,9 @@ function borrowBook(data) {
   
   var totalQty = parseInt(book.quantity) || 1;
   var borrowedQty = getBookBorrowedQty(data.book_id);
+  var lostQty = getBookLostQty(data.book_id);
   var requestQty = parseInt(data.quantity) || 1;
-  var availableQty = totalQty - borrowedQty;
+  var availableQty = totalQty - borrowedQty - lostQty;
   
   if ((!data.status || data.status !== 'Chờ duyệt') && requestQty > availableQty) {
     throw new Error('Không đủ sách. Còn ' + availableQty + '/' + totalQty + ' cuốn');

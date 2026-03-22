@@ -69,7 +69,7 @@ export default function BookAction() {
   }, 0);
   const lostQty = bookBorrows.filter(b => b.book_id === id).reduce((s, b) => s + (b.lost_qty || 0), 0);
   const totalQty = book?.quantity || 1;
-  const availableQty = totalQty - borrowedQty;
+  const availableQty = totalQty - borrowedQty - lostQty;
 
   const isOverdue = (dueDate: string) => {
     if (!dueDate) return false;

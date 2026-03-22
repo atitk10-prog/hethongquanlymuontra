@@ -97,6 +97,10 @@ export default function BookBorrow() {
     }, 0);
   };
 
+  const getBookLostQty = (bookId: string) => {
+    return bookBorrows.filter(b => b.book_id === bookId).reduce((s, b) => s + (b.lost_qty || 0), 0);
+  };
+
   const isOverdue = (d: string) => {
     if (!d) return false;
     try { return now > new Date(d); } catch { return false; }
@@ -112,7 +116,8 @@ export default function BookBorrow() {
 
   const addToCart = (b: typeof books[0]) => {
     const borrowed = getBookBorrowedQty(b.id);
-    const available = (b.quantity || 1) - borrowed;
+    const lost = getBookLostQty(b.id);
+    const available = (b.quantity || 1) - borrowed - lost;
     if (available <= 0) return;
     setCart(prev => [...prev, { book_id: b.id, title: b.title, author: b.author, category: b.category, qty: 1, maxQty: available }]);
     setSearch('');
@@ -368,7 +373,8 @@ export default function BookBorrow() {
               <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
                 {filteredBooks.slice(0, 50).map(b => {
                   const borrowed = getBookBorrowedQty(b.id);
-                  const available = (b.quantity || 1) - borrowed;
+                  const lost = getBookLostQty(b.id);
+                  const available = (b.quantity || 1) - borrowed - lost;
                   return (
                     <button key={b.id} onClick={() => addToCart(b)}
                       className={`w-full text-left px-3 py-2.5 text-sm hover:bg-indigo-50 flex justify-between items-center transition-colors ${available <= 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
