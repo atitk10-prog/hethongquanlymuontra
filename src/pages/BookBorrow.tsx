@@ -44,7 +44,11 @@ export default function BookBorrow() {
   });
 
   // Data filtering by role
-  const allActiveBorrows = bookBorrows.filter(b => b.status === 'Đang mượn' || b.status === 'Trả thiếu');
+  const allActiveBorrows = bookBorrows.filter(b => {
+    if (b.status !== 'Đang mượn' && b.status !== 'Trả thiếu') return false;
+    const remaining = (b.quantity || 1) - (b.returned_qty || 0) - (b.lost_qty || 0);
+    return remaining > 0;
+  });
   const activeBorrows = isManager ? allActiveBorrows : allActiveBorrows.filter(b => b.borrower === user?.name);
   const pendingBorrows = bookBorrows.filter(b => b.status === 'Chờ duyệt');
   const myPending = isManager ? pendingBorrows : pendingBorrows.filter(b => b.borrower === user?.name);

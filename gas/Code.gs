@@ -1459,20 +1459,35 @@ function returnBookFn(data) {
   }
   
   var borrowedQty = parseInt(allData[foundRow][quantityCol]) || 1;
-  var returnedQty = (data.returned_qty !== undefined && data.returned_qty !== null) ? parseInt(data.returned_qty) : borrowedQty;
+  
+  // Support partial returns — check previous returned/lost
+  var returnedQtyCol = headers.indexOf('returned_qty');
+  var lostQtyCol = headers.indexOf('lost_qty');
+  var previousReturned = (returnedQtyCol !== -1) ? (parseInt(allData[foundRow][returnedQtyCol]) || 0) : 0;
+  var previousLost = (lostQtyCol !== -1) ? (parseInt(allData[foundRow][lostQtyCol]) || 0) : 0;
+  var remaining = borrowedQty - previousReturned - previousLost;
+  
+  var returnedQty = (data.returned_qty !== undefined && data.returned_qty !== null) ? parseInt(data.returned_qty) : remaining;
   var damagedQty = parseInt(data.damaged_qty) || 0;
   var lostQty = parseInt(data.lost_qty) || 0;
-  var totalReturn = returnedQty + damagedQty + lostQty;
+  var totalThisReturn = returnedQty + damagedQty + lostQty;
   
-  if (totalReturn > borrowedQty) {
-    throw new Error('Tổng trả (' + totalReturn + ') vượt quá SL mượn (' + borrowedQty + ')');
+  if (totalThisReturn > remaining) {
+    throw new Error('Tổng trả (' + totalThisReturn + ') vượt quá SL còn (' + remaining + ')');
   }
   
+  // returned_qty stores good + damaged (physically returned), same as device
+  var newReturnedTotal = previousReturned + returnedQty + damagedQty;
+  var newLostTotal = previousLost + lostQty;
+  
   var now = new Date().toISOString();
-  var newStatus = totalReturn < borrowedQty ? 'Trả thiếu' : 'Đã trả';
+  var newStatus = (newReturnedTotal + newLostTotal >= borrowedQty) ? 'Đã trả' :
+                  (newReturnedTotal + newLostTotal > 0) ? 'Trả thiếu' : 'Đang mượn';
   
   sheet.getRange(foundRow + 1, statusCol + 1).setValue(newStatus);
-  sheet.getRange(foundRow + 1, returnDateCol + 1).setValue(now);
+  if (newStatus === 'Đã trả') {
+    sheet.getRange(foundRow + 1, returnDateCol + 1).setValue(now);
+  }
   
   if (data.note && noteCol !== -1) {
     sheet.getRange(foundRow + 1, noteCol + 1).setValue(data.note);
@@ -1480,7 +1495,7 @@ function returnBookFn(data) {
   
   // Write returned_qty, damaged_qty, lost_qty, condition_note
   var extraCols = ['returned_qty', 'damaged_qty', 'lost_qty', 'condition_note'];
-  var extraVals = [returnedQty, damagedQty, lostQty, String(data.condition_note || '')];
+  var extraVals = [newReturnedTotal, damagedQty, newLostTotal, String(data.condition_note || '')];
   var lastCol = headers.length;
   
   for (var c = 0; c < extraCols.length; c++) {
